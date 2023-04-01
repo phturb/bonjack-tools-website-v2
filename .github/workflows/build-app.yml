@@ -55,11 +55,13 @@ jobs:
         with:
           name: bonjack-tools-website-release.zip
       - name: Copy file to server
-        uses: garygrossgarten/github-action-scp@release
+        uses: appleboy/scp-action@master
         with:
-          local: bonjack-tools-website-release.zip
-          remote: scp/release/bonjack-tools-website-release.zip
+          source: bonjack-tools-website-release.zip
+          target: scp/release/bonjack-tools-website-release.zip
           host: ${{ secrets.HOST }}
           username: ${{ secrets.SSH_USER }}
+          passphrase: ${{ secrets.PASSWORD }}
           password: ${{ secrets.PASSWORD }}
-        
+          key: ${{ secrets.SSH_KEY }}
+
