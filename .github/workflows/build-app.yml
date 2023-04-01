@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Get artifact
+      - name: Get build artifact
         uses: actions/download-artifact@v1
         with:
           name: react-github-actions-build
@@ -46,3 +46,20 @@ jobs:
         with:
           name: bonjack-tools-website-release.zip
           path: bonjack-tools-website-release.zip
+  deploy:
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Get release artifact
+        uses: actions/download-artifact@v1
+        with:
+          name: bonjack-tools-website-release.zip
+      - name: Copy file to server
+        uses: garygrossgarten/github-action-scp@release
+        with:
+          local: bonjack-tools-website-release.zip
+          remote: scp/release/bonjack-tools-website-release.zip
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.PASSWORD }}
+        
