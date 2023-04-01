@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "react-query";
 import reportWebVitals from "./reportWebVitals";
 import { Header, Footer } from "./components";
-import { Home, LoisDesNorms, LunaBot } from "./pages";
 
 import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
@@ -19,7 +18,7 @@ ReactDOM.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-      <Header />
+        <Header />
         <Routes>
           {routes.map((route) => (
             <Route
@@ -29,7 +28,7 @@ ReactDOM.render(
             />
           ))}
         </Routes>
-      <Footer />
+        <Footer />
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

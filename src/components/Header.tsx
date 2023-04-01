@@ -1,9 +1,9 @@
+import React from "react";
+
 import NavBar from "./NavBar";
 
-export type HeaderProperties = {};
-
-const Header = (props: HeaderProperties) => {
-    return (<NavBar></NavBar>);
+const Header = () => {
+  return <NavBar></NavBar>;
 };
 
 export default Header;
