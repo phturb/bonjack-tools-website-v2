@@ -3,6 +3,7 @@ import { Paper, Tabs, Tab, Box } from "@mui/material";
 import Rules from "./Rules";
 import Stats from "./Stats";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const AdditionalInformationBlock = (props: { availablePlayers: any }) => {
   const [state, setState] = useState(0);
 
@@ -17,7 +18,7 @@ const AdditionalInformationBlock = (props: { availablePlayers: any }) => {
       >
         <Tabs
           value={state}
-          onChange={(event, value) => {
+          onChange={(_, value) => {
             setState(value);
           }}
         >

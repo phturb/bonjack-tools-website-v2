@@ -46,8 +46,8 @@ const GuessingComponent = (props: GuessingComponentProps) => {
   const [currentlyPlayingTrack, setCurrentlyPlayingTrack] = useState<
     SpotifyApi.PlaylistTrackObject | undefined
   >(undefined);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [currentPlaylist, setCurrentPlaylist] = useState<any>(undefined);
-  const [errorList, setErrorList] = useState<Error[]>([]);
   const [currentSongTime, setCurrentSongTime] = useState<number>(0);
   const [device, setDevice] = useState<SpotifyApi.UserDevice | undefined>(
     undefined
@@ -402,10 +402,10 @@ const GuessingComponent = (props: GuessingComponentProps) => {
               fullWidth
               sx={{ width: 230 }}
               value={currentGuessInput}
-              onChange={(event: any, newValue: string | null) => {
+              onChange={(_: React.SyntheticEvent, newValue: string | null) => {
                 setCurrentGuessInput(newValue ?? "");
               }}
-              onInputChange={(event: any, newValue: string | null) => {
+              onInputChange={(_: React.SyntheticEvent, newValue: string | null) => {
                 setCurrentGuessInput(newValue ?? "");
               }}
               freeSolo

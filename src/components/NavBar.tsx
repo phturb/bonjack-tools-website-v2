@@ -49,7 +49,7 @@ const NavBar = () => {
         component={RouterLink}
         to={route.path}
         key={route.name + "-nav"}
-        onClick={(event: React.MouseEvent<HTMLElement>) => {
+        onClick={() => {
           handleCloseNavMenu(setAnchorElNav);
         }}
         sx={{ my: 2, color: "white", display: "block" }}
@@ -65,7 +65,7 @@ const NavBar = () => {
         key={route.name + "-nav"}
         component={RouterLink}
         to={route.path}
-        onClick={(event: React.MouseEvent<HTMLElement>) => {
+        onClick={() => {
           handleCloseNavMenu(setAnchorElNav);
         }}
       >
@@ -106,7 +106,7 @@ const NavBar = () => {
                 keepMounted
                 anchorEl={anchorElNav}
                 open={Boolean(anchorElNav)}
-                onClose={(event: React.MouseEvent<HTMLElement>) => {
+                onClose={() => {
                   handleCloseNavMenu(setAnchorElNav);
                 }}
               >
@@ -141,7 +141,7 @@ const NavBar = () => {
                 keepMounted
                 anchorEl={anchorElCrypto}
                 open={Boolean(anchorElCrypto)}
-                onClose={(event: React.MouseEvent<HTMLElement>) => {
+                onClose={() => {
                   handleCloseNavMenu(setAnchorElCrypto);
                 }}
               >
@@ -164,7 +164,7 @@ const NavBar = () => {
                 keepMounted
                 anchorEl={anchorElGames}
                 open={Boolean(anchorElGames)}
-                onClose={(event: React.MouseEvent<HTMLElement>) => {
+                onClose={() => {
                   handleCloseNavMenu(setAnchorElGames);
                 }}
               >

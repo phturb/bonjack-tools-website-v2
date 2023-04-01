@@ -14,6 +14,7 @@ import {
 
 const GuessTheSong = () => {
   const [spotifyApi, setSpotifyApi] = useState(new SpotifyWebApi());
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [token, setAccessToken] = useState("");
   const { hash } = useLocation();
   const [playlistId, setPlaylistId] = useState("");

@@ -21,8 +21,9 @@ const playlistIdParser = (playlistId: string) => {
 const GuessingPlaylistSelector = (props: GuessingPlaylistSelectorProps) => {
   const [localPlaylistId, setLocalPlaylistId] = useState("");
   const [currentErrorMessage, setCurrentErrorMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const onChange = (event: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_, setIsLoading] = useState(false);
+  const onChange = (event: { target: { value: React.SetStateAction<string>; }; }) => {
     setLocalPlaylistId(event.target.value);
   };
 
@@ -35,7 +36,7 @@ const GuessingPlaylistSelector = (props: GuessingPlaylistSelectorProps) => {
       setIsLoading(true);
       props.spotifyApi
         .getPlaylist(playlistId, {})
-        .then((result) => {
+        .then(() => {
           setCurrentErrorMessage("");
           props.updatePlaylistId(playlistId);
         })
