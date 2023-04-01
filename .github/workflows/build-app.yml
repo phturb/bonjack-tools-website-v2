@@ -59,7 +59,9 @@ jobs:
         with:
           source: bonjack-tools-website-release.zip
           target: scp/release/bonjack-tools-website-release.zip
-          host: ${{ secrets.HOST }}
+          port : ${{ secrets.SSH_PORT }}
+          host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.PASSWORD }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
 
