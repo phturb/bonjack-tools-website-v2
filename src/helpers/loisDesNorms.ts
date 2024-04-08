@@ -5,6 +5,13 @@ export type MessageActions = "updatePlayers" | "updateState";
 export interface Player {
   player: DiscordPlayer;
   role: LeagueOfLegendsRole | undefined;
+  champion: Champion | undefined;
+}
+
+export interface Champion {
+  id: string;
+  name: string;
+  img: string;
 }
 
 export interface DiscordPlayer {
@@ -17,5 +24,5 @@ export const emptyDiscordPlayer = (): DiscordPlayer => {
 };
 
 export const emptyPlayer = (): Player => {
-  return { player: emptyDiscordPlayer(), role: undefined };
+  return { player: emptyDiscordPlayer(), role: undefined, champion: undefined };
 };

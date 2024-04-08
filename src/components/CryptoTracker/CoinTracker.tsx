@@ -8,7 +8,6 @@ import {
   ListItemText,
 } from "@mui/material";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CoinTracker = (props: any) => {
   const coinDetail = (
     <Stack direction="row" spacing={2}>

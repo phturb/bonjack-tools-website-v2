@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import { API_HTTP_ENDPOINT } from "../config/config";
 

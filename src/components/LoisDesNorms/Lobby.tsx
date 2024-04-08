@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import {
   Button,
@@ -16,6 +15,7 @@ export interface LobbyProperties {
   rollCount: number;
   players: Player[];
   availablePlayers: any;
+  leagueVersion: string;
   canRoll: boolean;
   nextRollTimer: number;
   reset: (_: any) => void;
@@ -49,7 +49,9 @@ const Lobby = (props: LobbyProperties) => {
               index={index}
               availablePlayers={props.availablePlayers}
               playerId={player.player.id}
+              leagueVersion={props.leagueVersion}
               role={player.role}
+              champion={player.champion}
               onChange={props.onPlayerChange}
             />
           );

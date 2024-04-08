@@ -17,7 +17,6 @@ import {
   gamesToolRoutes,
   homeRoute,
   expensesTracker,
-  guessTheSong,
   otherProjects,
   routes,
 } from "../routes";
@@ -49,7 +48,7 @@ const NavBar = () => {
         component={RouterLink}
         to={route.path}
         key={route.name + "-nav"}
-        onClick={() => {
+        onClick={(event: React.MouseEvent<HTMLElement>) => {
           handleCloseNavMenu(setAnchorElNav);
         }}
         sx={{ my: 2, color: "white", display: "block" }}
@@ -65,7 +64,7 @@ const NavBar = () => {
         key={route.name + "-nav"}
         component={RouterLink}
         to={route.path}
-        onClick={() => {
+        onClick={(event: React.MouseEvent<HTMLElement>) => {
           handleCloseNavMenu(setAnchorElNav);
         }}
       >
@@ -106,7 +105,7 @@ const NavBar = () => {
                 keepMounted
                 anchorEl={anchorElNav}
                 open={Boolean(anchorElNav)}
-                onClose={() => {
+                onClose={(event: React.MouseEvent<HTMLElement>) => {
                   handleCloseNavMenu(setAnchorElNav);
                 }}
               >
@@ -141,7 +140,7 @@ const NavBar = () => {
                 keepMounted
                 anchorEl={anchorElCrypto}
                 open={Boolean(anchorElCrypto)}
-                onClose={() => {
+                onClose={(event: React.MouseEvent<HTMLElement>) => {
                   handleCloseNavMenu(setAnchorElCrypto);
                 }}
               >
@@ -164,14 +163,13 @@ const NavBar = () => {
                 keepMounted
                 anchorEl={anchorElGames}
                 open={Boolean(anchorElGames)}
-                onClose={() => {
+                onClose={(event: React.MouseEvent<HTMLElement>) => {
                   handleCloseNavMenu(setAnchorElGames);
                 }}
               >
                 {gamesToolRoutes.routes.map(menuItemNavGenerator)}
               </Menu>
               {buttonNavGenerator(expensesTracker)}
-              {buttonNavGenerator(guessTheSong)}
               {buttonNavGenerator(otherProjects)}
             </Box>
           </Toolbar>

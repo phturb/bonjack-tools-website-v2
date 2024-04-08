@@ -1,13 +1,19 @@
 FROM node:alpine
 
+ENV REACT_APP_WEBSOCKET_ENDPOINT=ws://localhost:3001/
+
 WORKDIR /usr/src/app
 
 COPY package*.json ./
+
+RUN mkdir -p /usr/src/app/node_modules
+
+RUN chown -R node:node /usr/src/app/node_modules
 
 RUN npm i -g typescript \
                 ts-node
 RUN npm i
 
-USER node
+RUN mkdir -p /usr/src/app/node_modules/.cache && chown -R node:node /usr/src/app/node_modules/.cache
 
 CMD ["npm", "start"]

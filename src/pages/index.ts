@@ -4,7 +4,6 @@ import LunaBot from "./LunaBot";
 import CryptoTracker from "./CryptoTracker";
 import ExpenseManager from "./ExpenseManager";
 import OtherProjects from "./OtherProjects";
-import GuessTheSong from "./GuessTheSong";
 
 export {
   Home,
@@ -13,5 +12,4 @@ export {
   CryptoTracker,
   ExpenseManager,
   OtherProjects,
-  GuessTheSong,
 };
