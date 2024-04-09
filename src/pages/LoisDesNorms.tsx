@@ -37,8 +37,7 @@ const LoisDesNorms = () => {
   const connectWs = () => {
     let retryDelay = 1000;
     const ws = new WebSocket(
-      //process.env.REACT_APP_WEBSOCKET_ENDPOINT || "ws://localhost:3001/"
-      "ws://localhost:3001/"
+      process.env.REACT_APP_WEBSOCKET_ENDPOINT || "ws://localhost:3001/"
     );
 
     const retryConnection = () => {
