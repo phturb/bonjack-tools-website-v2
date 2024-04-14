@@ -10,8 +10,10 @@ import {
   YAxis,
 } from "recharts";
 import { useTheme } from "@mui/material/styles";
+import { useNavigate } from "react-router-dom";
 
 const Stats = (props: { availablePlayers: any }) => {
+  const navigate = useNavigate();
   const stats = Object.entries(props.availablePlayers)
     .filter((x) => x[1] && (x[1] as any).name && (x[1] as any).stats)
     .map((ap) => {
@@ -78,6 +80,12 @@ const Stats = (props: { availablePlayers: any }) => {
           dataKey="winRate"
           name="Win Rate"
           fill={theme.palette.secondary.main}
+          onClick={(e) => {
+                const { payload } = e;
+                if (payload && payload.id && payload.id != 0) {
+                  navigate("/profile?id="+payload.id);
+                }
+              }}
         />
       </BarChart>
     </ResponsiveContainer>
