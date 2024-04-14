@@ -1,3 +1,6 @@
+import React from "react";
+import { useAuth0 } from "@auth0/auth0-react";
+import { Navigate, Route, useLocation } from "react-router-dom";
 import {
   Home,
   LoisDesNorms,
@@ -6,6 +9,17 @@ import {
   ExpenseManager,
   OtherProjects,
 } from "./pages";
+import Profile from "./pages/Profile";
+import { CircularProgress } from "@mui/material";
+
+export const PrivateRoute = (params: { path: string, element: any}) => {
+  const { pathname } = useLocation();
+  const { isAuthenticated, isLoading } = useAuth0();
+  if (isLoading) return (<CircularProgress />);
+  return isAuthenticated
+    ? (params.element)
+    : (<Navigate to={{ pathname: "/" }} state={{ state: { from: pathname }}} />);
+}
 
 export const homeRoute = { name: "Home", path: "/", element: Home };
 export const loisDesNormsRoute = {
@@ -28,6 +42,13 @@ export const expensesTracker = {
   path: "/expense-tracker",
   element: ExpenseManager,
 };
+
+export const profile = {
+  name: "Profile",
+  path: "/profile",
+  element: Profile
+};
+
 export const otherProjects = {
   name: "Other Projects",
   path: "/other-projects",
@@ -41,6 +62,10 @@ export const routes = [
   cryptoTracker,
   lunaBot,
   otherProjects,
+];
+
+export const privateRoutes = [
+  profile
 ];
 
 export const cryptoRoutes = {

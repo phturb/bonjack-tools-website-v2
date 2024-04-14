@@ -9,6 +9,8 @@ import {
   IconButton,
   Toolbar,
   Typography,
+  Tooltip,
+  Avatar,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { useState } from "react";
@@ -21,6 +23,7 @@ import {
   routes,
 } from "../routes";
 import { Link as RouterLink } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 
 const NavBar = () => {
   const [anchorElNav, setAnchorElNav] = useState<HTMLElement | null>(null);
@@ -28,6 +31,9 @@ const NavBar = () => {
     null
   );
   const [anchorElGames, setAnchorElGames] = useState<HTMLElement | null>(null);
+  const [anchorElProfile, setAnchorElProfile] = useState<HTMLElement | null>(
+    null
+  );
 
   const handleOpenUserMenu = (
     event: React.MouseEvent<HTMLElement>,
@@ -72,6 +78,60 @@ const NavBar = () => {
       </MenuItem>
     );
   };
+
+  const { isAuthenticated, loginWithRedirect, logout, user } = useAuth0();
+  console.log(isAuthenticated);
+  console.log(user);
+  const profileButton = !isAuthenticated ? (
+    <Button onClick={() => loginWithRedirect()} sx={{ my: 2, color: "white" }}>
+      Login
+    </Button>
+  ) : (
+    <Box sx={{ flexGrow: 0 }}>
+      <Tooltip title="Open settings">
+        <IconButton
+          onClick={(event: React.MouseEvent<HTMLElement>) => {
+            handleOpenUserMenu(event, setAnchorElProfile);
+          }}
+          sx={{ p: 0 }}
+        >
+          <Avatar alt={user?.name} src={user?.picture} />
+        </IconButton>
+      </Tooltip>
+      <Menu
+        sx={{ mt: "45px" }}
+        id="menu-appbar"
+        anchorEl={anchorElProfile}
+        anchorOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        keepMounted
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        open={Boolean(anchorElProfile)}
+        onClose={(event: React.MouseEvent<HTMLElement>) => {
+          handleCloseNavMenu(setAnchorElProfile);
+        }}
+      >
+        <MenuItem
+          key="profile"
+          component={RouterLink}
+          to="/profile"
+          onClick={(event: React.MouseEvent<HTMLElement>) => {
+            handleCloseNavMenu(setAnchorElProfile);
+          }}
+        >
+          <Typography textAlign="center">Profile</Typography>
+        </MenuItem>
+        <MenuItem key="logout" onClick={() => logout()}>
+          <Typography textAlign="center">Logout</Typography>
+        </MenuItem>
+      </Menu>
+    </Box>
+  );
 
   return (
     <Box>
@@ -172,6 +232,7 @@ const NavBar = () => {
               {buttonNavGenerator(expensesTracker)}
               {buttonNavGenerator(otherProjects)}
             </Box>
+            {profileButton}
           </Toolbar>
         </Container>
       </AppBar>
