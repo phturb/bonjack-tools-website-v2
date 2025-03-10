@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Avatar, Button, Container, Typography } from "@mui/material";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   DataGrid,
-  GridRowsProp,
   GridColDef,
   GridRenderCellParams,
   GridRowSelectionModel,
@@ -34,7 +33,7 @@ const ProfileContent = (props: { userName: string, userId: string, isLoggedInUse
   const discordId = props.userId;
   const championsQuery = useQuery("data-champions", async () => {
     const championsResponse = await fetch(
-      process.env.REACT_APP_HTTP_ENDPOINT +
+      import.meta.env.PUBLIC_HTTP_ENDPOINT +
         "/players/" +
         discordId +
         "/champions"
@@ -45,7 +44,7 @@ const ProfileContent = (props: { userName: string, userId: string, isLoggedInUse
 
   const statsQuery = useQuery("data-stats", async () => {
     const statsResponse =  await fetch(
-      process.env.REACT_APP_HTTP_ENDPOINT +
+      import.meta.env.PUBLIC_HTTP_ENDPOINT +
         "/players/" +
         discordId +
         "/stats"
@@ -95,7 +94,7 @@ const ProfileContent = (props: { userName: string, userId: string, isLoggedInUse
   const updateChampions = async () => {
     const token = await getAccessTokenSilently({
       authorizationParams: {
-        audience: process.env.REACT_APP_AUTH0_AUDIENCE,
+        audience: import.meta.env.PUBLIC_AUTH0_AUDIENCE,
       },
     });
     const payload = rows.map((x) => {
@@ -105,7 +104,7 @@ const ProfileContent = (props: { userName: string, userId: string, isLoggedInUse
       }
     }); 
     await fetch(
-      process.env.REACT_APP_HTTP_ENDPOINT +
+      import.meta.env.PUBLIC_HTTP_ENDPOINT +
         "/players/" +
         discordId +
         "/champions",
@@ -153,8 +152,8 @@ const ProfileContent = (props: { userName: string, userId: string, isLoggedInUse
 };
 
 const Profile = () => {
-  const { user, getAccessTokenSilently } = useAuth0();
-  const [ searchParams, setSearchparams ] = useSearchParams();
+  const { user } = useAuth0();
+  const [ searchParams ] = useSearchParams();
   const { isDiscordUser, discordId } = extractDiscordFromUser(user);
 
   const userId = (searchParams.has("id") ? searchParams.get("id") : discordId) ?? "";

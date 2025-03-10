@@ -46,7 +46,6 @@ const GuessingComponent = (props: GuessingComponentProps) => {
   const [currentlyPlayingTrack, setCurrentlyPlayingTrack] = useState<
     SpotifyApi.PlaylistTrackObject | undefined
   >(undefined);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [currentPlaylist, setCurrentPlaylist] = useState<any>(undefined);
   const [currentSongTime, setCurrentSongTime] = useState<number>(0);
   const [device, setDevice] = useState<SpotifyApi.UserDevice | undefined>(

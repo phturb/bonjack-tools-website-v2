@@ -8,7 +8,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import axios from "axios";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import CoinTracker from "../components/CryptoTracker/CoinTracker";
 
 const cryptoIds = [

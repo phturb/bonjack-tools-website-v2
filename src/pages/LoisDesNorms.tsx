@@ -25,6 +25,9 @@ interface LoisDesNormsState {
   gameId: number;
   nextRollTimer: number;
   canRoll: boolean;
+  discordGuild: string;
+  discordGuildChannel: string;
+  leagueVersion: string;
 }
 
 const LoisDesNorms = () => {
@@ -37,7 +40,7 @@ const LoisDesNorms = () => {
   const connectWs = () => {
     let retryDelay = 1000;
     const ws = new WebSocket(
-      process.env.REACT_APP_WEBSOCKET_ENDPOINT || "ws://localhost:3001/"
+      import.meta.env.PUBLIC_WEBSOCKET_ENDPOINT || "ws://localhost:3001/"
     );
 
     const retryConnection = () => {
@@ -117,9 +120,10 @@ const LoisDesNorms = () => {
       gameId: -1,
       nextRollTimer: 0,
       canRoll: false,
-      availablePlayers: [emptyDiscordPlayer()],
+      availablePlayers: { "": emptyDiscordPlayer()},
       discordGuild: "",
       discordGuildChannel: "",
+      leagueVersion: "",
     }
   );
 
@@ -140,22 +144,23 @@ const LoisDesNorms = () => {
 
   const onPlayerChange = (event: SelectChangeEvent<string>, index: number) => {
     const playerChangeId = event.target.value as string;
-    const previousPlayer = state.players[index].player;
-    if (playerChangeId !== state.players[index].player.id) {
-      for (let i = 0; i < state.players.length; i++) {
-        if (state.players[i].id === playerChangeId) {
-          state.players[i] = previousPlayer;
+    const playersCopy = { ...state.players };
+    const previousPlayer = playersCopy[index].player;
+    if (playerChangeId !== playersCopy[index].player.id) {
+      for (let i = 0; i < playersCopy.length; i++) {
+        if (playersCopy[i].player.id === playerChangeId) {
+          playersCopy[i].player = previousPlayer;
           break;
         }
       }
-      state.players[index] = {
-        ...state.players[index],
+      playersCopy[index] = {
+        ...playersCopy[index],
         player: {
           id: playerChangeId,
-          name: state.availablePlayers[playerChangeId],
+          name: state.availablePlayers[playerChangeId].name,
         },
       };
-      dispatch({ action: "updatePlayers", content: state.players });
+      dispatch({ action: "updatePlayers", content: playersCopy });
     }
   };
 

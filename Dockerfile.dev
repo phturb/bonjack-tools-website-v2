@@ -1,6 +1,6 @@
 FROM node:alpine
 
-ENV REACT_APP_WEBSOCKET_ENDPOINT=ws://localhost:3001/
+ENV PUBLIC_WEBSOCKET_ENDPOINT=ws://localhost:3001/
 
 WORKDIR /usr/src/app
 
