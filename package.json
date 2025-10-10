@@ -4,6 +4,8 @@
   "private": true,
   "dependencies": {
     "@auth0/auth0-react": "^2.3.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@fontsource/roboto": "^5.2.5",
     "@mui/icons-material": "^6.4.7",
     "@mui/material": "^6.4.7",
@@ -22,6 +24,7 @@
     "web-vitals": "^4.2.4"
   },
   "scripts": {
+    "preinstall": "npx only-allow yarn",
     "build": "rsbuild build",
     "dev": "rsbuild dev",
     "preview": "rsbuild preview",
@@ -46,7 +49,7 @@
     "@rsbuild/core": "^1.0.1",
     "@rsbuild/plugin-babel": "^1.0.4",
     "@rsbuild/plugin-node-polyfill": "^1.3.0",
-    "@rsbuild/plugin-react": "^1.0.1",
+    "@rsbuild/plugin-react": "^1.4.1",
     "@rsbuild/plugin-svgr": "^1.0.7",
     "@rsbuild/plugin-type-check": "^1.2.1",
     "@rspack/plugin-react-refresh": "^1.0.1",

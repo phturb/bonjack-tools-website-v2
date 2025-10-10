@@ -33,6 +33,7 @@ export default defineConfig({
   plugins: [
     pluginReact({
       swcReactOptions: {
+        runtime: 'automatic',
         importSource: '@emotion/react',
       },
     }),
