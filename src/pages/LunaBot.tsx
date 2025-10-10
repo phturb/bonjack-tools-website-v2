@@ -7,11 +7,11 @@ import {
   TableHead,
   TableRow,
   TableBody,
-  Grid,
   CircularProgress,
   Container,
   Typography,
 } from "@mui/material";
+import Grid from '@mui/material/GridLegacy';
 import { useQuery } from "@tanstack/react-query";
 import {
   LineChart,

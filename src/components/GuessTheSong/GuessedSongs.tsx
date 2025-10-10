@@ -1,12 +1,12 @@
 import React from "react";
 import {
-  Grid,
   List,
   ListItem,
   ListItemText,
   Stack,
   Typography,
 } from "@mui/material";
+import Grid from '@mui/material/GridLegacy';
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import { PlayedTracks } from "../../interfaces/GuessTheSong/PlayedTracks";

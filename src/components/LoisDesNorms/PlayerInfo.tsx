@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Grid,
   FormControl,
   InputLabel,
   Select,
@@ -10,6 +9,7 @@ import {
   Avatar,
   Stack
 } from "@mui/material";
+import Grid from '@mui/material/GridLegacy';
 import topThumb from "../../img/Position_TOP.png";
 import adcThumb from "../../img/Position_ADC.png";
 import supportThumb from "../../img/Position_SUPPORT.png";
@@ -53,9 +53,8 @@ const PlayerInfo = (props: PlayerInfoProperties) => {
     >
       <Grid item xs={8}>
         <FormControl fullWidth>
-          <InputLabel id={`player-${index + 1}-select-label`}>{`Player ${
-            index + 1
-          }`}</InputLabel>
+          <InputLabel id={`player-${index + 1}-select-label`}>{`Player ${index + 1
+            }`}</InputLabel>
           <Select
             labelId={`player-${index + 1}-select-label`}
             id={`player-${index + 1}-select`}
@@ -78,20 +77,20 @@ const PlayerInfo = (props: PlayerInfoProperties) => {
       <Grid item xs="auto">
         <Stack>
           {role && (
-              <Chip
-                sx={{ width: "105px" }}
-                label={role}
-                avatar={<Avatar alt={role} src={(imgs as any)[role]} />}
-                variant="outlined"
-              />
+            <Chip
+              sx={{ width: "105px" }}
+              label={role}
+              avatar={<Avatar alt={role} src={(imgs as any)[role]} />}
+              variant="outlined"
+            />
           )}
           {champion && (
-              <Chip
-                sx={{ width: "105px" }}
-                label={champion.name}
-                avatar={<Avatar alt={champion.name} src={"https://ddragon.leagueoflegends.com/cdn/" + props.leagueVersion + "/img/champion/" + champion.img} />}
-                variant="outlined"
-              />
+            <Chip
+              sx={{ width: "105px" }}
+              label={champion.name}
+              avatar={<Avatar alt={champion.name} src={"https://ddragon.leagueoflegends.com/cdn/" + props.leagueVersion + "/img/champion/" + champion.img} />}
+              variant="outlined"
+            />
           )}
         </Stack>
       </Grid>
