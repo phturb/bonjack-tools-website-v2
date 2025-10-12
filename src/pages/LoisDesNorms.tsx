@@ -2,10 +2,10 @@ import React from "react";
 import {
   CircularProgress,
   Container,
-  Grid,
   SelectChangeEvent,
   Typography,
 } from "@mui/material";
+import Grid from '@mui/material/GridLegacy';
 import { useEffect, useReducer, useState } from "react";
 import {
   DiscordPlayer,
@@ -84,19 +84,13 @@ const LoisDesNorms = () => {
   const [state, dispatch] = useReducer(
     (
       state: LoisDesNormsState,
-      message: { action: MessageActions; content: Player[] | string }
+      message: { action: MessageActions; content: string }
     ) => {
       switch (message.action) {
         case "updatePlayers": {
-          const newPlayers = message.content as Player[];
+          const newPlayers = JSON.parse(message.content) as Player[];
           const newState = { ...state, players: newPlayers };
           const players = newPlayers.map((x: Player) => x.player);
-          wsState.ws?.send(
-            JSON.stringify({
-              action: "updatePlayers",
-              content: JSON.stringify(players),
-            })
-          );
           return newState;
         }
         case "updateState": {
@@ -120,7 +114,7 @@ const LoisDesNorms = () => {
       gameId: -1,
       nextRollTimer: 0,
       canRoll: false,
-      availablePlayers: { "": emptyDiscordPlayer()},
+      availablePlayers: { "": emptyDiscordPlayer() },
       discordGuild: "",
       discordGuildChannel: "",
       leagueVersion: "",
@@ -144,9 +138,9 @@ const LoisDesNorms = () => {
 
   const onPlayerChange = (event: SelectChangeEvent<string>, index: number) => {
     const playerChangeId = event.target.value as string;
-    const playersCopy = { ...state.players };
+    const playersCopy = [...state.players];
     const previousPlayer = playersCopy[index].player;
-    if (playerChangeId !== playersCopy[index].player.id) {
+    if (playerChangeId !== playersCopy[index]?.player?.id) {
       for (let i = 0; i < playersCopy.length; i++) {
         if (playersCopy[i].player.id === playerChangeId) {
           playersCopy[i].player = previousPlayer;
@@ -160,7 +154,17 @@ const LoisDesNorms = () => {
           name: state.availablePlayers[playerChangeId].name,
         },
       };
-      dispatch({ action: "updatePlayers", content: playersCopy });
+      const content = JSON.stringify(playersCopy)
+      dispatch({ action: "updatePlayers", content: content });
+      const contentws = JSON.stringify(playersCopy.map(p => p.player))
+      console.log(contentws)
+      wsState.ws?.send(
+        JSON.stringify({
+          action: "updatePlayers",
+          content: contentws,
+        })
+      );
+
     }
   };
 

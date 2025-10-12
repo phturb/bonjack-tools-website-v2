@@ -1,7 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": ["DOM", "ES2020"],
+    "lib": [
+      "DOM",
+      "ES2020"
+    ],
+    "types": [
+      "@rspack/core/module"
+    ],
     "module": "ESNext",
     "jsx": "react-jsx",
     "strict": true,
@@ -11,5 +17,7 @@
     "moduleResolution": "bundler",
     "useDefineForClassFields": true
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

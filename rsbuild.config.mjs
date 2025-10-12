@@ -1,24 +1,18 @@
+import Dotenv from 'dotenv-webpack';
 import { defineConfig, loadEnv } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginSvgr } from '@rsbuild/plugin-svgr';
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
-import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
-import Dotenv from 'dotenv-webpack';
-import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
-import ReactRefreshPlugin from '@rspack/plugin-react-refresh';
-
 const { publicVars, rawPublicVars } = loadEnv({ prefixes: ['PUBLIC_'] });
-const ReactCompilerConfig = {
-  /* ... */
-};
+
+
+const ReactCompilerConfig = {};
+const isDev = process.env.NODE_ENV === 'development';
 
 export default defineConfig({
-  output: {
-    distPath: {
-      root: 'build',
-    },
-    polyfill: 'usage',
+  html: {
+    title: "Bonjack tools",
   },
   source: {
     include: [{ not: /[\\/]core-js[\\/]/ }],
@@ -27,29 +21,28 @@ export default defineConfig({
       'process.env': JSON.stringify(rawPublicVars),
     },
   },
-  html: {
-    template: './public/index.html'
-  },
   plugins: [
     pluginReact({
       swcReactOptions: {
         runtime: 'automatic',
         importSource: '@emotion/react',
       },
+      fastRefresh: false,
     }),
+    pluginSvgr({ mixedImport: true }),
     pluginBabel({
       include: /\.(?:jsx|tsx)$/,
       babelLoaderOptions(opts) {
-        opts.plugins?.unshift('babel-plugin-react-compiler');
+        opts.plugins?.unshift(
+          'babel-plugin-react-compiler',
+          ReactCompilerConfig);
       },
     }),
-    pluginSvgr({ mixedImport: true }),
-    pluginNodePolyfill(),
   ].filter(Boolean),
   tools: {
     rspack: {
       plugins: [
-      ],
+      ].filter(Boolean),
       module: {
         rules: [
           {
@@ -60,29 +53,6 @@ export default defineConfig({
             generator: {
               filename: 'static/media/[name].[hash][ext]',
             },
-          },
-          {
-            test: /\.js$/,
-            use: [
-              {
-                loader: 'builtin:swc-loader',
-                options: {
-                  // SWC options for JS
-                },
-              },
-            ],
-          },
-          {
-            test: /\.jsx$/,
-            use: [
-              {
-                loader: 'builtin:swc-loader',
-                options: {
-                  // SWC options for JSX
-                },
-              },
-              { loader: 'babel-loader' },
-            ],
           },
         ]
       }
