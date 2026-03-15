@@ -24,7 +24,7 @@ const AdditionalInformationBlock = (props: { availablePlayers: any }) => {
           <Tab id="rules" label="Rules" value={0} />
           <Tab id="stats" label="Stats" value={1} />
         </Tabs>
-        <div hidden={state !== 1} style={{ height: 360, width: 375 }}>
+        <div hidden={state !== 1} style={{ height: 360, width: 375, overflowY: "auto" }}>
           <Stats availablePlayers={props.availablePlayers} />
         </div>
         <div hidden={state !== 0} style={{ height: 360, width: 375 }}>
