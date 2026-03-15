@@ -9,6 +9,7 @@
     "@fontsource/roboto": "^5.2.8",
     "@mui/icons-material": "^7.3.4",
     "@mui/material": "^7.3.4",
+    "@mui/system": "^7.3.4",
     "@mui/x-data-grid": "^8.14.0",
     "@svgr/webpack": "^8.1.0",
     "@swc/helpers": "^0.5.17",
