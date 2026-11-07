@@ -1,7 +1,7 @@
 const env = import.meta.env;
 
 export const LDN_WEBSOCKET_ENDPOINT =
-  env.PUBLIC_WEBSOCKET_ENDPOINT || "wss://tools.bonjack.club/ws/";
+  env.PUBLIC_WEBSOCKET_ENDPOINT || "wss://tools.bonjack.club/ws";
 export const API_HTTP_ENDPOINT =
   env.PUBLIC_HTTP_ENDPOINT || "https://tools.bonjack.club/api";
 
