@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Autocomplete,
   Avatar,
   Box,
@@ -14,341 +15,252 @@ import {
   Typography,
 } from "@mui/material";
 import SpotifyWebApi from "spotify-web-api-js";
-import GuessedSongs from "./GuessedSongs";
 import { green, red } from "@mui/material/colors";
+import GuessedSongs from "./GuessedSongs";
 import { PlayedTracks } from "../../interfaces/GuessTheSong/PlayedTracks";
 
 interface GuessingComponentProps {
   spotifyApi: SpotifyWebApi.SpotifyWebApiJs;
   playlistId: string;
   updatePlaylistId: (playlistId: string) => void;
+  onUnauthorized?: () => void;
 }
 
-const GUESS_STAGES = [1, 2, 5, 7, 11, 16, -1];
+type Track = SpotifyApi.PlaylistTrackObject;
 
-const INTERVAL_TIME = 250; // 250ms
+/** Seconds of playback allowed at each stage; -1 means unlimited. */
+const GUESS_STAGES = [1, 2, 5, 7, 11, 16, -1];
+const LAST_STAGE = GUESS_STAGES.length - 1;
+const INTERVAL_TIME = 250;
+
+const normalize = (s: string) => s.trim().toLowerCase();
+
+const pickRandom = (tracks: Track[]): [Track | undefined, number] => {
+  if (tracks.length === 0) return [undefined, -1];
+  const index = Math.floor(Math.random() * tracks.length);
+  return [tracks[index], index];
+};
+
+const isUnauthorized = (err: unknown) =>
+  typeof err === "object" && err !== null && (err as { status?: number }).status === 401;
 
 const GuessingComponent = (props: GuessingComponentProps) => {
+  const { spotifyApi, playlistId, onUnauthorized } = props;
+
   const [currentGuessStage, setCurrentGuessStage] = useState(0);
-  const [currentSong, setCurrentSong] = useState<string | undefined>(undefined);
   const [songWasGuessed, setSongWasGuessed] = useState(false);
   const [currentGuessInput, setCurrentGuessInput] = useState("");
-  const [intervalId, setIntervalId] = useState<ReturnType<
-    typeof setInterval
-  > | null>(null);
-  const [playlistTracks, setPlaylistTracks] = useState<
-    SpotifyApi.PlaylistTrackObject[]
-  >([]);
+  const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
   const [playedTracks, setPlayedTracks] = useState<PlayedTracks[]>([]);
-  const [notPlayedTracks, setNotPlayedTracks] = useState<
-    SpotifyApi.PlaylistTrackObject[]
-  >([]);
-  const [currentlyPlayingTrack, setCurrentlyPlayingTrack] = useState<
-    SpotifyApi.PlaylistTrackObject | undefined
-  >(undefined);
-  const [currentPlaylist, setCurrentPlaylist] = useState<any>(undefined);
-  const [currentSongTime, setCurrentSongTime] = useState<number>(0);
-  const [device, setDevice] = useState<SpotifyApi.UserDevice | undefined>(
-    undefined
-  );
-  const [availableDevices, setAvailableDevices] = useState<
-    SpotifyApi.UserDevice[]
-  >([]);
-  const [guessError, setGuessError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [notPlayedTracks, setNotPlayedTracks] = useState<Track[]>([]);
+  const [currentTrack, setCurrentTrack] = useState<Track | undefined>();
+  const [playlistName, setPlaylistName] = useState("");
+  const [currentSongTime, setCurrentSongTime] = useState(0);
+  const [device, setDevice] = useState<SpotifyApi.UserDevice | undefined>();
+  const [availableDevices, setAvailableDevices] = useState<SpotifyApi.UserDevice[]>([]);
+  const [guessError, setGuessError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const selectRandomTrack = (
-    tracks: SpotifyApi.PlaylistTrackObject[]
-  ): [SpotifyApi.PlaylistTrackObject | undefined, number] => {
-    if (tracks.length <= 0) {
-      return [undefined, -1];
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-    const index = Math.floor(Math.random() * (tracks.length - 1));
-    return [tracks[index], index];
-  };
+  }, []);
 
+  const handleApiError = useCallback(
+    (err: unknown) => {
+      console.error(err);
+      if (isUnauthorized(err)) onUnauthorized?.();
+    },
+    [onUnauthorized]
+  );
+
+  // The parent keys this component on playlistId, so a new playlist remounts it
+  // and every piece of state starts fresh.
   useEffect(() => {
-    setPlayedTracks([]);
-    const populatePlaylist = async (playlistId: string) => {
+    let cancelled = false;
+
+    const fetchAllTracks = async () => {
       let offset = 0;
-      let tracks: SpotifyApi.PlaylistTrackObject[] = [];
+      let tracks: Track[] = [];
+      let total = Infinity;
+      while (offset < total) {
+        const page = await spotifyApi.getPlaylistTracks(playlistId, { offset });
+        tracks = tracks.concat(page.items.filter((t) => t.track));
+        total = page.total;
+        offset += page.limit;
+      }
+      return tracks;
+    };
+
+    (async () => {
       try {
-        let result = await props.spotifyApi.getPlaylistTracks(playlistId, {
-          offset: offset,
-        });
-        tracks = tracks.concat(result.items);
-        offset += result.limit;
-        while (offset < result.total) {
-          result = await props.spotifyApi.getPlaylistTracks(playlistId, {
-            offset: offset,
-          });
-          tracks = tracks.concat(result.items);
-          offset += result.limit;
+        const playlist = await spotifyApi.getPlaylist(playlistId, {});
+        const tracks = await fetchAllTracks();
+        const playback = await spotifyApi.getMyCurrentPlaybackState({});
+        const devices = await spotifyApi.getMyDevices();
+        if (cancelled) return;
+
+        setPlaylistName(playlist.name);
+        setPlaylistTracks(tracks);
+        const [first, firstIndex] = pickRandom(tracks);
+        setCurrentTrack(first);
+        setNotPlayedTracks(tracks.filter((_, i) => i !== firstIndex));
+        setAvailableDevices(devices.devices);
+        setDevice(playback?.device ?? devices.devices.find((d) => d.is_active));
+      } catch (err) {
+        if (cancelled) return;
+        handleApiError(err);
+        setLoadError("Could not load the playlist or your Spotify devices.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playlistId, spotifyApi, handleApiError]);
+
+  // On unmount: stop polling and silence Spotify so the song does not keep
+  // playing on another page.
+  useEffect(() => {
+    return () => {
+      stopPolling();
+      spotifyApi.pause({}).catch(() => undefined);
+    };
+  }, [stopPolling, spotifyApi]);
+
+  /** Polls playback and pauses once the allowed time for this stage has elapsed. */
+  const startStageTimer = (guessStage: number) => {
+    stopPolling();
+    const limitMs = GUESS_STAGES[guessStage] * 1000;
+    if (limitMs < 0) return;
+
+    // Spotify reports is_playing=false for a moment right after play(); only
+    // treat "not playing" as the end once playback was actually observed.
+    let sawPlaying = false;
+    intervalRef.current = setInterval(async () => {
+      try {
+        const playback = await spotifyApi.getMyCurrentPlaybackState({});
+        const progress = playback?.progress_ms ?? 0;
+        if (playback?.is_playing) sawPlaying = true;
+        setCurrentSongTime(progress);
+        if (progress >= limitMs || (sawPlaying && !playback?.is_playing)) {
+          stopPolling();
+          await spotifyApi.pause({});
+          await spotifyApi.seek(0, {});
+          setCurrentSongTime(0);
         }
       } catch (err) {
-        console.error(err);
-      } finally {
-        let playlistTracksCopy: SpotifyApi.PlaylistTrackObject[] = [];
-        tracks.forEach((t) => {
-          playlistTracksCopy.push(t);
-        });
-        setPlaylistTracks(playlistTracksCopy);
-        setPlayedTracks([]);
-        const [nextTrack, nextTrackIndex] = selectRandomTrack(tracks);
-        setCurrentlyPlayingTrack(nextTrack);
-        playlistTracksCopy = [];
-        tracks.forEach((t) => {
-          playlistTracksCopy.push(t);
-        });
-        playlistTracksCopy.splice(nextTrackIndex);
-        setNotPlayedTracks(playlistTracksCopy);
+        stopPolling();
+        handleApiError(err);
       }
-    };
-    props.spotifyApi
-      .getPlaylist(props.playlistId, {})
-      .then((result) => {
-        setCurrentPlaylist(result);
-        return populatePlaylist(props.playlistId);
-      })
-      .then(() => {
-        return props.spotifyApi.getMyCurrentPlaybackState({});
-      })
-      .then((result) => {
-        if (result) {
-          setDevice(result.device);
-        }
-        return props.spotifyApi.getMyDevices();
-      })
-      .then((result) => {
-        setAvailableDevices(result.devices);
-      })
-      .catch((err) => {
-        console.error(err);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, [props.playlistId, props.spotifyApi]);
-
-  const onTrackStart = (guessStage: number) => {
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-    props.spotifyApi.setShuffle(false, {}, (err) => {
-      if (err) {
-        console.error(err);
-      }
-    });
-    if (!songWasGuessed && GUESS_STAGES[guessStage] >= 0) {
-      const newIntervalId = setInterval(() => {
-        props.spotifyApi.getMyCurrentPlaybackState({}, (err, result) => {
-          setCurrentSongTime(result?.progress_ms ?? 0);
-          if (
-            err ||
-            !result.is_playing ||
-            !result?.progress_ms ||
-            result.progress_ms > GUESS_STAGES[guessStage] * 1000
-          ) {
-            props.spotifyApi
-              .pause({})
-              .then(() => {
-                return props.spotifyApi.seek(0, {});
-              })
-              .then(() => {
-                setCurrentSongTime(0);
-                return props.spotifyApi.getMyCurrentPlaybackState({});
-              })
-              .then((result) => {
-                setCurrentSongTime(result?.progress_ms ?? 0);
-              })
-              .catch((err) => {
-                console.error(err);
-              });
-            if (intervalId) {
-              clearInterval(intervalId);
-            }
-            clearInterval(newIntervalId);
-            setIntervalId(null);
-          }
-        });
-      }, INTERVAL_TIME);
-      setIntervalId(newIntervalId);
-    }
-    props.spotifyApi
-      .getMyCurrentPlayingTrack({})
-      .then((result) => {
-        setCurrentSong(result.item?.name);
-      })
-      .catch((err) => {
-        console.error(err);
-      });
+    }, INTERVAL_TIME);
   };
 
+  const playCurrent = (guessStage: number) => {
+    if (!currentTrack?.track) {
+      setGuessError("No track to play");
+      return;
+    }
+    if (!device?.id) {
+      setGuessError("Select a Spotify device first");
+      return;
+    }
+    setGuessError("");
+    spotifyApi
+      .play({ device_id: device.id, uris: [currentTrack.track.uri], position_ms: 0 })
+      .then(() => startStageTimer(guessStage))
+      .catch(handleApiError);
+  };
+
+  const onPlayClick = () => playCurrent(currentGuessStage);
+
   const onNextClick = () => {
-    const newGuessStage = currentGuessStage + 1;
-    if (newGuessStage >= GUESS_STAGES.length) {
-      setCurrentGuessStage(GUESS_STAGES.length - 1);
-    } else {
-      setCurrentGuessStage(newGuessStage);
-    }
-    if (!currentlyPlayingTrack) {
-      console.error("NO PLAYING TRACK");
-      return;
-    }
-    if (!device || !device.id) {
-      console.error("NO DEVICE");
-      props.spotifyApi.pause();
-      return;
-    }
-    props.spotifyApi
-      .play({
-        device_id: device.id,
-        uris: [currentlyPlayingTrack?.track.uri],
-        position_ms: 0,
-      })
-      .then(() => {
-        onTrackStart(newGuessStage);
-      })
-      .catch((err) => {
-        console.error(err);
-      });
+    const nextStage = Math.min(currentGuessStage + 1, LAST_STAGE);
+    setCurrentGuessStage(nextStage);
+    playCurrent(nextStage);
+  };
+
+  const recordCurrent = (guessed: boolean) => {
+    if (!currentTrack) return;
+    setPlayedTracks((prev) =>
+      prev.some((p) => p.raw.track?.id === currentTrack.track?.id)
+        ? prev
+        : [...prev, { raw: currentTrack, guessed }]
+    );
   };
 
   const goToNextTrack = () => {
+    stopPolling();
+    spotifyApi.pause({}).catch(handleApiError);
     setCurrentGuessStage(0);
     setSongWasGuessed(false);
-    setCurrentSong(undefined);
     setCurrentGuessInput("");
     setGuessError("");
-    const [nextTrack, nextTrackIndex] = selectRandomTrack(notPlayedTracks);
-    if (!nextTrack) {
-      console.error("NO NEXT TRACK");
-      return;
-    }
-    if (!device || !device.id) {
-      console.error("NO DEVICE");
-      return;
-    }
-    setCurrentlyPlayingTrack(nextTrack);
-    notPlayedTracks.splice(nextTrackIndex);
-    setNotPlayedTracks(notPlayedTracks);
+    setCurrentSongTime(0);
+    const [next, nextIndex] = pickRandom(notPlayedTracks);
+    setCurrentTrack(next);
+    setNotPlayedTracks(notPlayedTracks.filter((_, i) => i !== nextIndex));
   };
 
   const onSkipClick = () => {
-    if (
-      currentlyPlayingTrack &&
-      playedTracks.filter(
-        (value) => value.raw.track.name === currentlyPlayingTrack.track.name
-      ).length <= 0
-    ) {
-      playedTracks.push({ raw: currentlyPlayingTrack, guessed: false });
-      setPlayedTracks(playedTracks);
-    }
-    props.spotifyApi.pause();
+    recordCurrent(songWasGuessed);
     goToNextTrack();
   };
 
-  const onPlayClick = () => {
-    if (!currentlyPlayingTrack) {
-      console.error("NO PLAYING TRACK");
-      return;
-    }
-    if (device && device.id) {
-      props.spotifyApi
-        .play({
-          device_id: device.id,
-          uris: [currentlyPlayingTrack?.track.uri],
-          position_ms: 0,
-        })
-        .then(() => {
-          onTrackStart(currentGuessStage);
-        })
-        .catch((err) => {
-          console.error(err);
-        });
-    }
-  };
-
-  const onGuessInputSubmitClick = () => {
-    const guessResult = currentGuessInput === currentSong;
-    setSongWasGuessed(songWasGuessed || guessResult);
-    if (guessResult) {
+  const onGuessSubmit = () => {
+    const answer = currentTrack?.track?.name;
+    if (!answer) return;
+    if (normalize(currentGuessInput) === normalize(answer)) {
+      setSongWasGuessed(true);
       setGuessError("");
-      if (
-        currentlyPlayingTrack &&
-        playedTracks.filter(
-          (value) => value.raw.track.name === currentlyPlayingTrack.track.name
-        ).length <= 0
-      ) {
-        playedTracks.push({ raw: currentlyPlayingTrack, guessed: true });
-        setPlayedTracks(playedTracks);
-      }
+      recordCurrent(true);
     } else {
       setGuessError("Wrong guess");
-      // Try Again logic
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (intervalId) {
-        clearTimeout(intervalId);
-      }
-    };
-  }, []);
-
-  console.log(currentlyPlayingTrack);
-  console.log(currentSong);
 
   const onDeviceChange = (event: SelectChangeEvent) => {
-    const possibleDevices = availableDevices.filter(
-      (d) => d.id === event.target.value
-    );
-    if (possibleDevices.length > 0) {
-      setDevice(possibleDevices[0]);
-    } else {
-      setDevice(undefined);
-    }
+    setDevice(availableDevices.find((d) => d.id === event.target.value));
   };
 
-  const loadedComponent = () => (
+  if (isLoading) {
+    return (
+      <Box sx={{ width: "100%" }}>
+        <Skeleton variant="text" width="100%" sx={{ fontSize: "1rem" }} animation="wave" />
+        <Skeleton variant="circular" width={40} height={40} animation="wave" />
+        <Skeleton variant="rectangular" width="100%" height={200} animation="wave" />
+      </Box>
+    );
+  }
+
+  const revealed = songWasGuessed || currentGuessStage >= LAST_STAGE;
+  const stageLimit = GUESS_STAGES[currentGuessStage];
+
+  return (
     <Stack spacing={2} alignItems="center" justifyContent="center">
-      <Typography variant="h5">
-        {currentPlaylist ? currentPlaylist.name : "No Playlist"}
-      </Typography>
-      <Stack
-        direction="row"
-        spacing={4}
-        alignItems="center"
-        justifyContent="center"
-      >
+      <Typography variant="h5">{playlistName || "No Playlist"}</Typography>
+      {loadError && <Alert severity="error">{loadError}</Alert>}
+      <Stack direction="row" spacing={4} alignItems="center" justifyContent="center">
         {GUESS_STAGES.map((stage, i) => {
-          let param;
-          if (i === currentGuessStage) {
-            param = { sx: { bgcolor: green[500] } };
-          } else if (i < currentGuessStage) {
-            param = { sx: { bgcolor: red[500] } };
-          } else {
-            param = {};
-          }
-          if (i >= currentGuessStage - 1 && i <= currentGuessStage + 1) {
-            if (stage < 0) {
-              return (
-                <Avatar key={stage} {...param}>
-                  ∞
-                </Avatar>
-              );
-            } else {
-              return (
-                <Avatar key={stage} {...param}>
-                  {stage}s
-                </Avatar>
-              );
-            }
-          } else {
-            return <></>;
-          }
+          if (i < currentGuessStage - 1 || i > currentGuessStage + 1) return null;
+          const sx =
+            i === currentGuessStage
+              ? { bgcolor: green[500] }
+              : i < currentGuessStage
+                ? { bgcolor: red[500] }
+                : undefined;
+          return (
+            <Avatar key={i} sx={sx}>
+              {stage < 0 ? "∞" : `${stage}s`}
+            </Avatar>
+          );
         })}
       </Stack>
       <Stack direction="row" spacing={1}>
@@ -356,19 +268,21 @@ const GuessingComponent = (props: GuessingComponentProps) => {
           Play
         </Button>
         <Select
-          label="Device"
-          value={device ? device.id ?? "" : ""}
+          aria-label="Device"
+          displayEmpty
+          value={device?.id ?? ""}
           onChange={onDeviceChange}
         >
+          <MenuItem value="" disabled>
+            Select a device
+          </MenuItem>
           {availableDevices
             .filter((d) => d.id)
-            .map((d) => {
-              return (
-                <MenuItem key={d.id ?? "0"} value={d.id ?? ""}>
-                  {d.name}
-                </MenuItem>
-              );
-            })}
+            .map((d) => (
+              <MenuItem key={d.id!} value={d.id!}>
+                {d.name}
+              </MenuItem>
+            ))}
         </Select>
       </Stack>
       <Slider
@@ -377,84 +291,62 @@ const GuessingComponent = (props: GuessingComponentProps) => {
         size="small"
         value={currentSongTime / 1000}
         min={0}
-        max={GUESS_STAGES[currentGuessStage]}
+        max={stageLimit < 0 ? (currentTrack?.track?.duration_ms ?? 0) / 1000 : stageLimit}
         disabled
       />
-      {songWasGuessed || currentGuessStage >= GUESS_STAGES.length - 1 ? (
+      {revealed ? (
         <>
-          <Typography variant="h6" align="center" justifyContent="center">
-            {currentlyPlayingTrack
-              ? currentlyPlayingTrack.track.name
-              : "No Song"}
+          <Typography variant="h6" align="center">
+            {currentTrack?.track?.name ?? "No Song"}
           </Typography>
-          <Button onClick={onSkipClick}>Skip</Button>
+          <Button onClick={onSkipClick} disabled={!currentTrack}>
+            {notPlayedTracks.length > 0 ? "Next song" : "Finish"}
+          </Button>
         </>
       ) : (
         <>
-          <Stack
-            direction="row"
-            justifyContent="center"
-            alignItems="center"
-            spacing={2}
-          >
+          <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
             <Autocomplete
               fullWidth
               sx={{ width: 230 }}
               value={currentGuessInput}
-              onChange={(_: React.SyntheticEvent, newValue: string | null) => {
-                setCurrentGuessInput(newValue ?? "");
-              }}
-              onInputChange={(_: React.SyntheticEvent, newValue: string | null) => {
-                setCurrentGuessInput(newValue ?? "");
-              }}
+              inputValue={currentGuessInput}
+              onChange={(_: React.SyntheticEvent, newValue: string | null) =>
+                setCurrentGuessInput(newValue ?? "")
+              }
+              onInputChange={(_: React.SyntheticEvent, newValue: string) =>
+                setCurrentGuessInput(newValue)
+              }
               freeSolo
-              options={playlistTracks.map((entry) => entry.track.name)}
+              options={playlistTracks.map((entry) => entry.track?.name ?? "")}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  disabled={songWasGuessed}
                   helperText={guessError}
                   error={guessError.length > 0}
                   label="Guess"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      onGuessSubmit();
+                    }
+                  }}
                 />
               )}
             />
-            <Button variant="outlined" onClick={onGuessInputSubmitClick}>
+            <Button variant="outlined" onClick={onGuessSubmit}>
               Guess
             </Button>
           </Stack>
-          <Button onClick={onNextClick}>Next</Button>
+          <Stack direction="row" spacing={1}>
+            <Button onClick={onNextClick}>More time</Button>
+            <Button onClick={onSkipClick}>Skip</Button>
+          </Stack>
         </>
       )}
       <GuessedSongs guessedSongs={playedTracks} />
-      <Button
-        onClick={() => {
-          props.updatePlaylistId("");
-        }}
-      >
-        Reset Playlist
-      </Button>
+      <Button onClick={() => props.updatePlaylistId("")}>Reset Playlist</Button>
     </Stack>
-  );
-
-  return isLoading ? (
-    <Box sx={{ width: "100%" }}>
-      <Skeleton
-        variant="text"
-        width={"100%"}
-        sx={{ fontSize: "1rem" }}
-        animation="wave"
-      />
-      <Skeleton variant="circular" width={40} height={40} animation="wave" />
-      <Skeleton
-        variant="rectangular"
-        width={"100%"}
-        height={200}
-        animation="wave"
-      />
-    </Box>
-  ) : (
-    loadedComponent()
   );
 };
 

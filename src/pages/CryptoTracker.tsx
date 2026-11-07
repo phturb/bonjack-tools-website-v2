@@ -1,4 +1,4 @@
-import React from "react";
+import { Fragment } from "react";
 import {
   Container,
   Divider,
@@ -7,9 +7,9 @@ import {
   Paper,
   CircularProgress,
 } from "@mui/material";
-import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import CoinTracker from "../components/CryptoTracker/CoinTracker";
+import { getCoinMarkets } from "../api/coingecko";
 
 const cryptoIds = [
   "bitcoin",
@@ -25,49 +25,35 @@ const cryptoIds = [
   "binancecoin",
 ];
 
-const queryCryptos = async () => {
-  const cryptoList = [];
-  for (const id of cryptoIds) {
-    const coin = await axios.get(
-      `https://api.coingecko.com/api/v3/coins/${id}?market_data=true`
-    );
-    cryptoList.push(coin.data);
-  }
-  return cryptoList;
-};
-
 const CryptoTracker = () => {
-  const cryptos = useQuery("cryptos", queryCryptos, {
-    refetchInterval: 120000,
+  const cryptos = useQuery({
+    queryKey: ["cryptos", cryptoIds],
+    queryFn: () => getCoinMarkets(cryptoIds),
+    refetchInterval: 120_000,
   });
-  let data;
-  if (cryptos.isSuccess) {
-    if (cryptos.data) {
-      data = cryptos.data;
-    } else {
-      data = [];
-    }
-  } else {
-    data = [];
-  }
 
   let content;
-  if (cryptos.isLoading) {
+  if (cryptos.isPending) {
     content = <CircularProgress />;
+  } else if (cryptos.isError) {
+    content = (
+      <Typography color="error">
+        Could not load prices: {cryptos.error.message}
+      </Typography>
+    );
   } else {
+    const data = cryptos.data;
     content = (
       <Paper>
         <List sx={{ bgcolor: "background.paper" }}>
-          {data?.map((x, index) => {
-            return (
-              <>
-                <CoinTracker {...x} />
-                {index !== data.length - 1 ? (
-                  <Divider variant="inset" component="li" />
-                ) : null}
-              </>
-            );
-          })}
+          {data.map((coin, index) => (
+            <Fragment key={coin.id}>
+              <CoinTracker coin={coin} />
+              {index !== data.length - 1 && (
+                <Divider variant="inset" component="li" />
+              )}
+            </Fragment>
+          ))}
         </List>
       </Paper>
     );

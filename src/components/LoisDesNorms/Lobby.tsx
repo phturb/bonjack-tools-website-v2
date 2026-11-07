@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Button,
   Box,
@@ -8,33 +7,30 @@ import {
   Stack,
 } from "@mui/material";
 import Countdown from "react-countdown";
-import { Player } from "../../helpers/loisDesNorms";
+import { AvailablePlayers, Player } from "../../helpers/loisDesNorms";
 import PlayerInfo from "./PlayerInfo";
 
 export interface LobbyProperties {
   rollCount: number;
   players: Player[];
-  availablePlayers: any;
+  availablePlayers: AvailablePlayers;
   leagueVersion: string;
   canRoll: boolean;
-  nextRollTimer: number;
-  reset: (_: any) => void;
-  roll: (_: any) => void;
-  cancel: (_: any) => void;
+  /** Epoch ms at which the next roll becomes available. */
+  nextRollAt: number;
+  reset: () => void;
+  roll: () => void;
+  cancel: () => void;
   onPlayerChange: (event: SelectChangeEvent<string>, index: number) => void;
 }
 
 const Lobby = (props: LobbyProperties) => {
-  console.log(props);
   return (
-    <Paper style={{ margin: "10" }}>
+    <Paper sx={{ m: 1 }}>
       <Stack
         component="form"
-        sx={{
-          width: 320,
-          padding: "10px",
-          minHeight: "446px",
-        }}
+        onSubmit={(e) => e.preventDefault()}
+        sx={{ width: 320, padding: "10px", minHeight: "446px" }}
         spacing={2}
       >
         <Box>
@@ -42,40 +38,34 @@ const Lobby = (props: LobbyProperties) => {
             Roll count : {props.rollCount}
           </Typography>
         </Box>
-        {props.players.map((player: Player, index: number) => {
-          return (
-            <PlayerInfo
-              key={`player-info-${index}`}
-              index={index}
-              availablePlayers={props.availablePlayers}
-              playerId={player.player.id}
-              leagueVersion={props.leagueVersion}
-              role={player.role}
-              champion={player.champion}
-              onChange={props.onPlayerChange}
-            />
-          );
-        })}
+        {props.players.map((player, index) => (
+          <PlayerInfo
+            key={`player-info-${index}`}
+            index={index}
+            availablePlayers={props.availablePlayers}
+            playerId={player.player.id}
+            leagueVersion={props.leagueVersion}
+            role={player.role}
+            champion={player.champion}
+            onChange={props.onPlayerChange}
+          />
+        ))}
 
         <Stack direction="row" spacing={2} justifyContent="space-around">
           <Button variant="outlined" onClick={props.cancel}>
-            Reset
+            Cancel
           </Button>
           <Button variant="contained" onClick={props.reset}>
             Finish
           </Button>
 
           {props.canRoll ? (
-            <Button
-              variant="contained"
-              onClick={props.roll}
-              disabled={!props.canRoll}
-            >
+            <Button variant="contained" onClick={props.roll}>
               Roll
             </Button>
           ) : (
             <Box>
-              <Countdown date={Date.now() + props.nextRollTimer}></Countdown>
+              <Countdown date={props.nextRollAt} />
             </Box>
           )}
         </Stack>

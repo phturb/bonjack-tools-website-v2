@@ -1,66 +1,60 @@
 import {
   Home,
   LoisDesNorms,
-  LunaBot,
   CryptoTracker,
-  ExpenseManager,
+  GuessTheSong,
   OtherProjects,
+  Profile,
 } from "./pages";
-import Profile from "./pages/Profile";
 
-export const homeRoute = { name: "Home", path: "/", element: Home };
-export const loisDesNormsRoute = {
-  name: "LoisDesNorms",
+export interface AppRoute {
+  name: string;
+  path: string;
+  element: React.ComponentType;
+}
+
+export const homeRoute: AppRoute = { name: "Home", path: "/", element: Home };
+export const loisDesNormsRoute: AppRoute = {
+  name: "Lois des Norms",
   path: "/lois-des-norms",
   element: LoisDesNorms,
 };
-export const cryptoTracker = {
+export const guessTheSongRoute: AppRoute = {
+  name: "Guess the Song",
+  path: "/guess-the-song",
+  element: GuessTheSong,
+};
+export const cryptoTracker: AppRoute = {
   name: "Crypto Tracker",
   path: "/crypto-tracker",
   element: CryptoTracker,
 };
-export const lunaBot = {
-  name: "Luna Bot",
-  path: "/luna-bot",
-  element: LunaBot,
-};
-export const expensesTracker = {
-  name: "Expense Tracker",
-  path: "/expense-tracker",
-  element: ExpenseManager,
-};
-
-export const profile = {
+export const profile: AppRoute = {
   name: "Profile",
   path: "/profile",
-  element: Profile
+  element: Profile,
 };
-
-export const otherProjects = {
+export const otherProjects: AppRoute = {
   name: "Other Projects",
   path: "/other-projects",
   element: OtherProjects,
 };
 
-export const routes = [
+export const routes: AppRoute[] = [
   homeRoute,
   loisDesNormsRoute,
-  expensesTracker,
+  guessTheSongRoute,
   cryptoTracker,
-  lunaBot,
+  profile,
   otherProjects,
-];
-
-export const privateRoutes = [
-  profile
 ];
 
 export const cryptoRoutes = {
   name: "Crypto",
-  routes: [cryptoTracker, lunaBot],
+  routes: [cryptoTracker],
 };
 
 export const gamesToolRoutes = {
   name: "Games Tool",
-  routes: [loisDesNormsRoute],
+  routes: [loisDesNormsRoute, guessTheSongRoute],
 };

@@ -1,46 +1,34 @@
-# Getting Started with Create React App
+# Bonjack Tools
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Personal tools website (React 19, MUI, rsbuild). Deployed to DigitalOcean App Platform on push to `main` (see `.do/app.yaml`).
 
-## Available Scripts
+## Scripts
 
-In the project directory, you can run:
+```sh
+yarn dev        # dev server with HMR
+yarn build      # production build to dist/
+yarn preview    # serve dist/
+yarn typecheck  # tsc
+yarn lint       # eslint
+yarn check      # typecheck + lint + build
+```
 
-### `yarn start`
+## Environment
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Public variables are read at build time from `.env`, `.env.local`, `.env.<mode>` and `.env.<mode>.local` (rsbuild convention). `.env.development` is committed with local defaults.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+| Variable | Purpose |
+|---|---|
+| `PUBLIC_HTTP_ENDPOINT` | REST API base (default `https://tools.bonjack.club/api`) |
+| `PUBLIC_WEBSOCKET_ENDPOINT` | Lois des Norms websocket (default `wss://tools.bonjack.club/ws/`) |
+| `PUBLIC_AUTH0_DOMAIN`, `PUBLIC_AUTH0_CLIENT_ID`, `PUBLIC_AUTH0_AUDIENCE` | Auth0 |
+| `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client id for Guess the Song |
 
-### `yarn test`
+Set the production values in the DigitalOcean app settings.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Docker
 
-### `yarn build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `yarn eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+```sh
+docker build -t bonjack-tools .            # nginx image serving dist/
+docker build -f Dockerfile.dev -t bonjack-tools-dev .
+```

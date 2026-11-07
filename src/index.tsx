@@ -1,5 +1,5 @@
 import React from "react";
-import ReactDOM from 'react-dom/client';
+import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Auth0Provider } from "@auth0/auth0-react";
 
@@ -9,17 +9,25 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import "./index.css";
 import App from "./App";
+import { AUTH0_AUDIENCE, AUTH0_CLIENT_ID, AUTH0_DOMAIN } from "./config/config";
 
 const queryClient = new QueryClient();
-const root = ReactDOM.createRoot(document.getElementById('root')!);
+const root = ReactDOM.createRoot(document.getElementById("root")!);
 root.render(
   <React.StrictMode>
     <Auth0Provider
-      domain={import.meta.env.PUBLIC_AUTH0_DOMAIN as string}
-      clientId={import.meta.env.PUBLIC_AUTH0_CLIENT_ID as string}
+      domain={AUTH0_DOMAIN}
+      clientId={AUTH0_CLIENT_ID}
       authorizationParams={{
         redirect_uri: window.location.origin,
-        audience: import.meta.env.PUBLIC_AUTH0_AUDIENCE as string,
+        audience: AUTH0_AUDIENCE,
+      }}
+      onRedirectCallback={(appState) => {
+        window.history.replaceState(
+          {},
+          document.title,
+          appState?.returnTo ?? window.location.pathname
+        );
       }}
       cacheLocation="localstorage"
       useRefreshTokens

@@ -1,4 +1,3 @@
-import React from "react";
 import {
   FormControl,
   InputLabel,
@@ -7,70 +6,60 @@ import {
   Chip,
   SelectChangeEvent,
   Avatar,
-  Stack
+  Stack,
 } from "@mui/material";
-import Grid from '@mui/material/GridLegacy';
+import Grid from "@mui/material/GridLegacy";
 import topThumb from "../../img/Position_TOP.png";
 import adcThumb from "../../img/Position_ADC.png";
 import supportThumb from "../../img/Position_SUPPORT.png";
 import midThumb from "../../img/Position_MID.png";
 import jungleThumb from "../../img/Position_JUNGLE.png";
-import { Champion } from "../../helpers/loisDesNorms";
+import {
+  AvailablePlayers,
+  Champion,
+  LeagueOfLegendsRole,
+} from "../../helpers/loisDesNorms";
 
 export interface PlayerInfoProperties {
   index: number;
-  availablePlayers: any;
+  availablePlayers: AvailablePlayers;
   playerId: string;
   leagueVersion: string;
   onChange: (event: SelectChangeEvent<string>, index: number) => void;
-  role?: string;
+  role?: LeagueOfLegendsRole;
   champion?: Champion;
 }
 
-const PlayerInfo = (props: PlayerInfoProperties) => {
-  const index = props.index;
-  const playerId = props.playerId;
-  const role = props.role;
-  const champion = props.champion;
-  const availablePlayers = props.availablePlayers;
-  const onChange = props.onChange;
+const ROLE_IMAGES: Record<LeagueOfLegendsRole, string> = {
+  TOP: topThumb,
+  ADC: adcThumb,
+  SUPPORT: supportThumb,
+  MID: midThumb,
+  JUNGLE: jungleThumb,
+};
 
-  const imgs = {
-    TOP: topThumb,
-    ADC: adcThumb,
-    SUPPORT: supportThumb,
-    MID: midThumb,
-    JUNGLE: jungleThumb,
-  };
+const PlayerInfo = (props: PlayerInfoProperties) => {
+  const { index, playerId, role, champion, availablePlayers, onChange } = props;
+  const label = `Player ${index + 1}`;
+  const labelId = `player-${index + 1}-select-label`;
 
   return (
-    <Grid
-      container
-      direction="row"
-      justifyContent="space-between"
-      alignItems="center"
-      key={`player-info-${index}`}
-    >
+    <Grid container direction="row" justifyContent="space-between" alignItems="center">
       <Grid item xs={8}>
         <FormControl fullWidth>
-          <InputLabel id={`player-${index + 1}-select-label`}>{`Player ${index + 1
-            }`}</InputLabel>
+          <InputLabel id={labelId}>{label}</InputLabel>
           <Select
-            labelId={`player-${index + 1}-select-label`}
+            labelId={labelId}
             id={`player-${index + 1}-select`}
             value={playerId}
-            label={`Player ${index + 1}`}
-            onChange={(evt) => {
-              onChange(evt, index);
-            }}
+            label={label}
+            onChange={(evt) => onChange(evt, index)}
           >
-            {Object.entries(availablePlayers).map((value) => {
-              return (
-                <MenuItem key={value[0] + "-select-item"} value={value[0]}>
-                  {(value[1] as any).name as string}
-                </MenuItem>
-              );
-            })}
+            {Object.entries(availablePlayers).map(([id, player]) => (
+              <MenuItem key={id || "none"} value={id}>
+                {player.name ?? "—"}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Grid>
@@ -80,7 +69,7 @@ const PlayerInfo = (props: PlayerInfoProperties) => {
             <Chip
               sx={{ width: "105px" }}
               label={role}
-              avatar={<Avatar alt={role} src={(imgs as any)[role]} />}
+              avatar={<Avatar alt={role} src={ROLE_IMAGES[role]} />}
               variant="outlined"
             />
           )}
@@ -88,7 +77,12 @@ const PlayerInfo = (props: PlayerInfoProperties) => {
             <Chip
               sx={{ width: "105px" }}
               label={champion.name}
-              avatar={<Avatar alt={champion.name} src={"https://ddragon.leagueoflegends.com/cdn/" + props.leagueVersion + "/img/champion/" + champion.img} />}
+              avatar={
+                <Avatar
+                  alt={champion.name}
+                  src={`https://ddragon.leagueoflegends.com/cdn/${props.leagueVersion}/img/champion/${champion.img}`}
+                />
+              }
               variant="outlined"
             />
           )}

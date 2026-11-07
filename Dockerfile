@@ -1,18 +1,13 @@
 # build environment
-FROM node:alpine as build
+FROM node:22.9.0-alpine AS build
 WORKDIR /app
-ENV PATH /app/node_modules/.bin:$PATH
-COPY package.json ./
-COPY package-lock.json ./
-RUN npm i --silent
-RUN npm install -g --silent typescript \
-                            ts-node
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
 COPY . ./
-RUN npm run build
+RUN yarn build
 
 # production environment
 FROM nginx:stable-alpine
-COPY --from=build /app/build /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
-

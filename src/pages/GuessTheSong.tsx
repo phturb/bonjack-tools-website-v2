@@ -1,74 +1,98 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import SpotifyWebApi from "spotify-web-api-js";
+import { Box, Button, CircularProgress, Container, Paper, Stack, Typography } from "@mui/material";
 import ConnectSpotify from "../components/GuessTheSong/ConnectSpotify";
 import GuessingComponent from "../components/GuessTheSong/GuessingComponent";
-import SpotifyWebApi from "spotify-web-api-js";
-import { useLocation } from "react-router-dom";
 import GuessingPlaylistSelector from "../components/GuessTheSong/GuessingPlaylistSelector";
 import {
-  Box,
-  Container,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+  clearSpotifyToken,
+  finishSpotifyLogin,
+  loadSpotifyToken,
+} from "../helpers/spotifyAuth";
 
 const GuessTheSong = () => {
-  const [spotifyApi, setSpotifyApi] = useState(new SpotifyWebApi());
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [token, setAccessToken] = useState("");
-  const { hash } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [token, setToken] = useState<string | null>(() => loadSpotifyToken());
+  const [exchangeError, setExchangeError] = useState<string | undefined>();
   const [playlistId, setPlaylistId] = useState("");
 
-  useEffect(() => {
-    if (hash) {
-      const hashParams = hash.split("&");
-      for (const paramGroup of hashParams) {
-        if (paramGroup.startsWith("#access_token=")) {
-          const newToken = paramGroup.replace("#access_token=", "");
-          spotifyApi.setAccessToken(newToken);
-          setAccessToken(newToken);
-          setSpotifyApi(spotifyApi);
-        }
-      }
-    }
-  }, [hash]);
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
+  const spotifyError = searchParams.get("error");
+  const exchanging = Boolean(code && state && !token && !exchangeError);
+  const authError = spotifyError
+    ? `Spotify refused the login: ${spotifyError}`
+    : exchangeError;
 
-  const guessingComponentSelector = () => {
-    return (
-      <>
-        {playlistId ? (
-          <Stack>
-            <GuessingComponent
-              spotifyApi={spotifyApi}
-              playlistId={playlistId}
-              updatePlaylistId={setPlaylistId}
-            />
-          </Stack>
-        ) : (
-          <GuessingPlaylistSelector
-            spotifyApi={spotifyApi}
-            updatePlaylistId={setPlaylistId}
-          />
-        )}
-      </>
-    );
+  useEffect(() => {
+    if (!code || !state || token) return;
+    let cancelled = false;
+    finishSpotifyLogin(code, state)
+      .then((accessToken) => {
+        if (!cancelled) setToken(accessToken);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setExchangeError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setSearchParams({}, { replace: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, state, token, setSearchParams]);
+
+  const spotifyApi = useMemo(() => {
+    const api = new SpotifyWebApi();
+    if (token) api.setAccessToken(token);
+    return api;
+  }, [token]);
+
+  const disconnect = () => {
+    clearSpotifyToken();
+    setToken(null);
+    setPlaylistId("");
   };
+
+  let content;
+  if (exchanging) {
+    content = <CircularProgress />;
+  } else if (!token) {
+    content = <ConnectSpotify error={authError} />;
+  } else if (playlistId) {
+    content = (
+      <Stack>
+        <GuessingComponent
+          key={playlistId}
+          spotifyApi={spotifyApi}
+          playlistId={playlistId}
+          updatePlaylistId={setPlaylistId}
+          onUnauthorized={disconnect}
+        />
+      </Stack>
+    );
+  } else {
+    content = (
+      <Stack spacing={1}>
+        <GuessingPlaylistSelector
+          spotifyApi={spotifyApi}
+          updatePlaylistId={setPlaylistId}
+        />
+        <Button size="small" onClick={disconnect}>
+          Disconnect Spotify
+        </Button>
+      </Stack>
+    );
+  }
 
   return (
     <Container>
       <Typography variant="h4" component="h4" align="center">
         Guess the Song
       </Typography>
-      <Box
-        sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-      >
-        <Paper sx={{ width: 320, padding: 2 }}>
-          {!spotifyApi.getAccessToken() ? (
-            <ConnectSpotify />
-          ) : (
-            guessingComponentSelector()
-          )}
-        </Paper>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <Paper sx={{ width: 320, padding: 2 }}>{content}</Paper>
       </Box>
     </Container>
   );

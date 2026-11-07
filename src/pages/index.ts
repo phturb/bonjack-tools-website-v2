@@ -1,15 +1,8 @@
-import Home from "./Home";
-import LoisDesNorms from "./LoisDesNorms";
-import LunaBot from "./LunaBot";
-import CryptoTracker from "./CryptoTracker";
-import ExpenseManager from "./ExpenseManager";
-import OtherProjects from "./OtherProjects";
+import { lazy } from "react";
 
-export {
-  Home,
-  LoisDesNorms,
-  LunaBot,
-  CryptoTracker,
-  ExpenseManager,
-  OtherProjects,
-};
+export const Home = lazy(() => import("./Home"));
+export const LoisDesNorms = lazy(() => import("./LoisDesNorms"));
+export const CryptoTracker = lazy(() => import("./CryptoTracker"));
+export const GuessTheSong = lazy(() => import("./GuessTheSong"));
+export const OtherProjects = lazy(() => import("./OtherProjects"));
+export const Profile = lazy(() => import("./Profile"));

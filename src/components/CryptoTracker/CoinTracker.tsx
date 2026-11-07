@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Stack,
   Typography,
@@ -7,22 +6,18 @@ import {
   Avatar,
   ListItemText,
 } from "@mui/material";
+import { CoinMarket } from "../../api/coingecko";
 
-const CoinTracker = (props: any) => {
+const CoinTracker = (props: { coin: CoinMarket }) => {
+  const { coin } = props;
+  const change = coin.price_change_percentage_24h;
   const coinDetail = (
-    <Stack direction="row" spacing={2}>
-      <Typography>Price: {props.market_data.current_price.usd}</Typography>
-      <Typography>
-        Percentage Change:{" "}
-        <span
-          style={{
-            color:
-              props.market_data.price_change_percentage_24h <= 0
-                ? "red"
-                : "green",
-          }}
-        >
-          {props.market_data.price_change_percentage_24h}
+    <Stack direction="row" spacing={2} component="span">
+      <Typography component="span">Price: {coin.current_price} USD</Typography>
+      <Typography component="span">
+        24h:{" "}
+        <span style={{ color: change !== null && change > 0 ? "green" : "red" }}>
+          {change === null ? "n/a" : `${change.toFixed(2)}%`}
         </span>
       </Typography>
     </Stack>
@@ -31,9 +26,9 @@ const CoinTracker = (props: any) => {
   return (
     <ListItem>
       <ListItemAvatar>
-        <Avatar alt={props.name} src={props.image.thumb} />
+        <Avatar alt={coin.name} src={coin.image} />
       </ListItemAvatar>
-      <ListItemText primary={props.name} secondary={coinDetail} />
+      <ListItemText primary={coin.name} secondary={coinDetail} />
     </ListItem>
   );
 };

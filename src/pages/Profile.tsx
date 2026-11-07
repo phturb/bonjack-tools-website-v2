@@ -1,17 +1,31 @@
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Avatar, Button, Container, Typography } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
+import {
+  Alert,
+  Avatar,
+  Button,
+  CircularProgress,
+  Container,
+  Typography,
+} from "@mui/material";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DataGrid,
   GridColDef,
   GridRenderCellParams,
   GridRowId,
   GridRowSelectionModel,
-  GridValidRowModel,
 } from "@mui/x-data-grid";
-import { extractDiscordFromUser } from "../helpers/discordHelper";
 import { useSearchParams } from "react-router-dom";
+import { isAxiosError } from "axios";
+import { extractDiscordFromUser } from "../helpers/discordHelper";
+import { winRate } from "../helpers/loisDesNorms";
+import {
+  getPlayerChampions,
+  getPlayerStats,
+  updatePlayerChampions,
+} from "../api/players";
+import { AUTH0_AUDIENCE } from "../config/config";
 
 const columns: GridColDef[] = [
   { field: "id", headerName: "ID", width: 150 },
@@ -19,159 +33,161 @@ const columns: GridColDef[] = [
   {
     field: "img",
     headerName: "Image",
-    renderCell: (params: GridRenderCellParams<any, any>) => (
+    renderCell: (params: GridRenderCellParams<{ img: string }, string>) => (
       <Avatar alt="Champion Icon" src={params.value} />
     ),
   },
 ];
 
-const ProfileContent = (props: { userName: string, userId: string, isLoggedInUser: boolean }) => {
+const Title = () => (
+  <Typography variant="h4" component="h4" align="center">
+    Profile
+  </Typography>
+);
+
+const ChampionsGrid = (props: { discordId: string; isLoggedInUser: boolean }) => {
+  const { discordId, isLoggedInUser } = props;
   const { getAccessTokenSilently } = useAuth0();
-  const [rowSelectionModel, setRowSelectionModel] =
-    useState<GridRowSelectionModel>({ type: "include", ids: new Set<GridRowId>() });
-  const [rows, setRows] =
-    useState<GridValidRowModel[]>([]);
-  const [stats, setStats] =
-    useState<{ id: string, name: string, stats: any }>({ id: "", name: "", stats: {} });
-  const discordId = props.userId;
+  const queryClient = useQueryClient();
+  const [selection, setSelection] = useState<GridRowSelectionModel | null>(null);
+
   const championsQuery = useQuery({
-    queryKey: ["data-champions"], queryFn: async () => {
-      const championsResponse = await fetch(
-        import.meta.env.PUBLIC_HTTP_ENDPOINT +
-        "/players/" +
-        discordId +
-        "/champions"
-      );
-      const champions = await championsResponse.json();
-      return { champions };
-    }
+    queryKey: ["player-champions", discordId],
+    queryFn: () => getPlayerChampions(discordId),
   });
 
-  const statsQuery = useQuery({
-    queryKey: ["data-stats"], queryFn: async () => {
-      const statsResponse = await fetch(
-        import.meta.env.PUBLIC_HTTP_ENDPOINT +
-        "/players/" +
-        discordId +
-        "/stats"
-      );
-      return await statsResponse.json();
-    }
-  });
-
-  useEffect(() => {
-    if (statsQuery.status === "success") {
-      setStats(statsQuery.data);
-    }
-  }, [statsQuery.status, statsQuery.data]);
-
-
-  useEffect(() => {
-    if (championsQuery.status === "success") {
-      setRows(championsQuery.data
-        ? championsQuery.data.champions.map(
-          (x: { name: string; id: string; img: string; owned: boolean }) => {
-            return {
-              id: x.id,
-              name: x.name,
-              img: x.img,
-            };
-          }
-        )
-        : []);
-      const selectedRow: GridRowSelectionModel = { type: 'include', ids: new Set<GridRowId>() };
-      championsQuery.data.champions.forEach((x: any) => {
-        if (x.owned) {
-          selectedRow.ids.add(x.id)
-        }
-      })
-      setRowSelectionModel(selectedRow);
-    }
-  }, [championsQuery.status, championsQuery.data]);
-
-  const updateChampions = async () => {
-    const token = await getAccessTokenSilently({
-      authorizationParams: {
-        audience: import.meta.env.PUBLIC_AUTH0_AUDIENCE,
-      },
-    });
-    const payload = rows.map((x) => {
-      return {
-        id: x.id,
-        owned: rowSelectionModel?.ids.has(x.id)
-      }
-    });
-    await fetch(
-      import.meta.env.PUBLIC_HTTP_ENDPOINT +
-      "/players/" +
-      discordId +
-      "/champions",
-      {
-        mode: 'no-cors',
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+  const champions = championsQuery.data ?? [];
+  const ownedSelection: GridRowSelectionModel = {
+    type: "include",
+    ids: new Set<GridRowId>(champions.filter((c) => c.owned).map((c) => c.id)),
   };
+  const rowSelectionModel = selection ?? ownedSelection;
+
+  const selectedCount = champions.filter((c) => rowSelectionModel.ids.has(c.id)).length;
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const token = await getAccessTokenSilently({
+        authorizationParams: { audience: AUTH0_AUDIENCE },
+      });
+      const payload = champions.map((c) => ({
+        id: c.id,
+        owned: rowSelectionModel.ids.has(c.id),
+      }));
+      await updatePlayerChampions(discordId, token, payload);
+    },
+    onSuccess: () => {
+      setSelection(null);
+      queryClient.invalidateQueries({ queryKey: ["player-champions", discordId] });
+    },
+  });
+
+  if (championsQuery.isPending) return <CircularProgress />;
+  if (championsQuery.isError) {
+    return <Alert severity="error">{championsQuery.error.message}</Alert>;
+  }
+
+  return (
+    <>
+      {isLoggedInUser && (
+        <>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || selectedCount === 0}
+          >
+            {mutation.isPending ? "Saving…" : "Update Champions"}
+          </Button>
+          {selectedCount === 0 && (
+            <Alert severity="warning">
+              Select at least one champion. An empty selection means every champion
+              can be rolled.
+            </Alert>
+          )}
+        </>
+      )}
+      {mutation.isError && (
+        <Alert severity="error">{mutation.error.message}</Alert>
+      )}
+      {mutation.isSuccess && <Alert severity="success">Champions updated</Alert>}
+      <DataGrid
+        rows={champions}
+        columns={columns}
+        disableRowSelectionOnClick
+        checkboxSelection={isLoggedInUser}
+        rowSelectionModel={rowSelectionModel}
+        onRowSelectionModelChange={setSelection}
+      />
+    </>
+  );
+};
+
+const ProfileContent = (props: {
+  userName: string;
+  discordId: string;
+  isLoggedInUser: boolean;
+}) => {
+  const statsQuery = useQuery({
+    queryKey: ["player-stats", props.discordId],
+    queryFn: () => getPlayerStats(props.discordId),
+  });
+  const stats = statsQuery.data?.stats;
+
+  if (statsQuery.isError) {
+    const status = isAxiosError(statsQuery.error) ? statsQuery.error.response?.status : undefined;
+    return (
+      <Container>
+        <Title />
+        <Alert severity={status === 404 ? "warning" : "error"}>
+          {status === 404
+            ? `No player found with id ${props.discordId}`
+            : statsQuery.error.message}
+        </Alert>
+      </Container>
+    );
+  }
 
   return (
     <Container>
-      <Typography variant="h4" component="h4" align="center">
-        Profile
-      </Typography>
+      <Title />
       <Typography variant="body1" component="p" align="center">
-        User: {props.userName}
+        User: {statsQuery.data?.name || props.userName}
       </Typography>
       <Typography variant="subtitle2" component="h6" align="center">
-        Game Played : {stats?.stats.numberOfGame}
+        Games Played : {stats?.numberOfGame ?? "…"}
       </Typography>
       <Typography variant="subtitle2" component="h6" align="center">
-        Number of Reroll : {stats?.stats.totalRoll}
+        Number of Rerolls : {stats?.totalRoll ?? "…"}
       </Typography>
       <Typography variant="subtitle2" component="h6" align="center">
-        Win Rate : {stats?.stats.numberOfGame / stats?.stats.totalRoll * 100}
+        Win Rate : {stats ? `${winRate(stats).toFixed(1)}%` : "…"}
       </Typography>
-      {props.isLoggedInUser ? (<Button onClick={updateChampions}>Update Champions</Button>) : (<></>)}
-      <DataGrid
-        rows={rows}
-        columns={columns}
-        disableRowSelectionOnClick
-        checkboxSelection
-        rowSelectionModel={rowSelectionModel}
-        onRowSelectionModelChange={(newRowSelectionModel) => {
-          setRowSelectionModel(newRowSelectionModel);
-        }}
-      />
+      <ChampionsGrid discordId={props.discordId} isLoggedInUser={props.isLoggedInUser} />
     </Container>
   );
 };
 
 const Profile = () => {
-  const { user } = useAuth0();
+  const { user, isAuthenticated, loginWithRedirect } = useAuth0();
   const [searchParams] = useSearchParams();
-  const { isDiscordUser, discordId } = extractDiscordFromUser(user);
+  const { isDiscordUser, discordId: ownDiscordId } = extractDiscordFromUser(user);
+  const requestedId = searchParams.get("id");
 
-  const userId = (searchParams.has("id") ? searchParams.get("id") : discordId) ?? "";
-  const isLoggedInUser = searchParams.has("id") ? searchParams.get("id") === discordId : true;
-  let userName = "";
-  if (!searchParams.has("id")) {
-    userName = user?.nickname ?? "";
-  } else if (searchParams.has("id") && searchParams.get("id") === discordId) {
-    userName = user?.nickname ?? "";
-  } else {
-    userName = searchParams.get("id") ?? "";
-  }
-
-  if (!searchParams.has("id") && !isDiscordUser) {
+  if (!requestedId && !isAuthenticated) {
     return (
       <Container>
-        <Typography variant="h4" component="h4" align="center">
-          Profile
-        </Typography>
+        <Title />
+        <Typography align="center">Log in to see your profile.</Typography>
+        <Button onClick={() => loginWithRedirect({ appState: { returnTo: "/profile" } })}>
+          Login
+        </Button>
+      </Container>
+    );
+  }
+
+  if (!requestedId && !isDiscordUser) {
+    return (
+      <Container>
+        <Title />
         <Typography>
           Profile features are currently only supported for discord login
         </Typography>
@@ -179,8 +195,18 @@ const Profile = () => {
     );
   }
 
-  return <ProfileContent userName={userName} userId={userId} isLoggedInUser={isLoggedInUser} />
+  const discordId = requestedId ?? ownDiscordId ?? "";
+  const isLoggedInUser = discordId === ownDiscordId;
+  const userName = isLoggedInUser ? (user?.nickname ?? discordId) : discordId;
 
+  return (
+    <ProfileContent
+      key={discordId}
+      userName={userName}
+      discordId={discordId}
+      isLoggedInUser={isLoggedInUser}
+    />
+  );
 };
 
 export default Profile;

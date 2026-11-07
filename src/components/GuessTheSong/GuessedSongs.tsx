@@ -1,12 +1,5 @@
-import React from "react";
-import {
-  List,
-  ListItem,
-  ListItemText,
-  Stack,
-  Typography,
-} from "@mui/material";
-import Grid from '@mui/material/GridLegacy';
+import { List, ListItem, ListItemText, Stack, Typography } from "@mui/material";
+import Grid from "@mui/material/GridLegacy";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import { PlayedTracks } from "../../interfaces/GuessTheSong/PlayedTracks";
@@ -15,25 +8,19 @@ interface GuessedSongsProps {
   guessedSongs: PlayedTracks[];
 }
 
+const SongList = (props: { tracks: PlayedTracks[] }) => (
+  <List>
+    {props.tracks.map((played) => (
+      <ListItem key={played.raw.track?.id ?? played.raw.track?.name}>
+        <ListItemText primary={played.raw.track?.name} />
+      </ListItem>
+    ))}
+  </List>
+);
+
 const GuessedSongs = (props: GuessedSongsProps) => {
-  const itemizedGuessedSongs = props.guessedSongs
-    .filter((s) => s.guessed)
-    .map((guessedSong, i) => {
-      return (
-        <ListItem key={guessedSong.raw.track.name + i}>
-          <ListItemText primary={guessedSong.raw.track.name} />
-        </ListItem>
-      );
-    });
-  const itemizedFailedSongs = props.guessedSongs
-    .filter((s) => !s.guessed)
-    .map((guessedSong, i) => {
-      return (
-        <ListItem key={guessedSong.raw.track.name + i}>
-          <ListItemText primary={guessedSong.raw.track.name} />
-        </ListItem>
-      );
-    });
+  const guessed = props.guessedSongs.filter((s) => s.guessed);
+  const failed = props.guessedSongs.filter((s) => !s.guessed);
   return (
     <Grid container spacing={2}>
       <Grid item xs={12}>
@@ -48,7 +35,7 @@ const GuessedSongs = (props: GuessedSongsProps) => {
             Guessed
           </Typography>
         </Stack>
-        <List>{itemizedGuessedSongs}</List>
+        <SongList tracks={guessed} />
       </Grid>
       <Grid item xs={6}>
         <Stack direction="row" spacing={1}>
@@ -57,7 +44,7 @@ const GuessedSongs = (props: GuessedSongsProps) => {
             Failed
           </Typography>
         </Stack>
-        <List>{itemizedFailedSongs}</List>
+        <SongList tracks={failed} />
       </Grid>
     </Grid>
   );

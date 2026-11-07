@@ -1,189 +1,189 @@
-import React from "react";
+import { useEffect, useReducer, useRef, useCallback, useState } from "react";
 import {
+  Alert,
   CircularProgress,
   Container,
   SelectChangeEvent,
   Typography,
 } from "@mui/material";
-import Grid from '@mui/material/GridLegacy';
-import { useEffect, useReducer, useState } from "react";
+import Grid from "@mui/material/GridLegacy";
 import {
-  DiscordPlayer,
   emptyDiscordPlayer,
   emptyPlayer,
+  LoisDesNormsState,
   MessageActions,
   Player,
 } from "../helpers/loisDesNorms";
 import AdditionalInformationBlock from "../components/LoisDesNorms/AdditionalInformationBlock";
 import Lobby from "../components/LoisDesNorms/Lobby";
+import { LDN_WEBSOCKET_ENDPOINT } from "../config/config";
 
-interface LoisDesNormsState {
-  players: Player[];
-  rollCount: number;
-  gameInProgress: boolean;
-  availablePlayers: Record<string, DiscordPlayer>;
-  gameId: number;
-  nextRollTimer: number;
-  canRoll: boolean;
-  discordGuild: string;
-  discordGuildChannel: string;
-  leagueVersion: string;
-}
+type Message = { action: MessageActions; content: string };
+
+const INITIAL_RETRY_MS = 1000;
+const MAX_RETRY_MS = 30_000;
+
+const initialState: LoisDesNormsState = {
+  players: Array.from({ length: 5 }, emptyPlayer),
+  rollCount: 0,
+  gameInProgress: false,
+  gameId: -1,
+  nextRollTimer: 0,
+  nextRollAt: 0,
+  canRoll: false,
+  availablePlayers: { "": emptyDiscordPlayer() },
+  discordGuild: "",
+  discordGuildName: "",
+  discordGuildChannel: "",
+  leagueVersion: "",
+};
+
+const reducer = (state: LoisDesNormsState, message: Message): LoisDesNormsState => {
+  switch (message.action) {
+    case "updatePlayers": {
+      const players = JSON.parse(message.content) as Player[];
+      return { ...state, players };
+    }
+    case "updateState": {
+      const newState = JSON.parse(message.content) as LoisDesNormsState;
+      return {
+        ...newState,
+        nextRollAt: Date.now() + (newState.nextRollTimer ?? 0),
+        availablePlayers: { ...newState.availablePlayers, "": emptyDiscordPlayer() },
+      };
+    }
+    default:
+      return state;
+  }
+};
+
+type ConnectionStatus =
+  | { kind: "connecting"; attempt: number }
+  | { kind: "open" }
+  | { kind: "closed"; attempt: number; retryInMs: number };
 
 const LoisDesNorms = () => {
-  const [wsState, setWsState] = useState<{
-    ws: WebSocket | undefined;
-  }>({
-    ws: undefined,
-  });
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [connection, setConnection] = useState<ConnectionStatus>({ kind: "connecting", attempt: 1 });
+  const wsRef = useRef<WebSocket | null>(null);
 
-  const connectWs = () => {
-    let retryDelay = 1000;
-    const ws = new WebSocket(
-      import.meta.env.PUBLIC_WEBSOCKET_ENDPOINT || "ws://localhost:3001/"
-    );
+  useEffect(() => {
+    let disposed = false;
+    let retryDelay = INITIAL_RETRY_MS;
+    let attempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const retryConnection = () => {
-      const { ws } = wsState;
+    const connect = () => {
+      if (disposed) return;
+      attempt += 1;
+      setConnection({ kind: "connecting", attempt });
+      const ws = new WebSocket(LDN_WEBSOCKET_ENDPOINT);
+      wsRef.current = ws;
 
-      if (!ws || ws.readyState === WebSocket.CLOSED) {
-        console.log("Reconnecting Socket ...");
-        connectWs();
-      }
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ws.onopen = function (_) {
-      setWsState({ ws: ws });
-    };
-
-    ws.onmessage = function (event) {
-      const msg = JSON.parse(event.data);
-      if (msg.action) {
-        dispatch(msg);
-      }
-    };
-
-    ws.onerror = function (err) {
-      console.error("Socket encontered error: ", err, "Closing Socket");
-      ws.close();
-    };
-
-    ws.onclose = function (evt) {
-      retryDelay += retryDelay;
-      console.log(
-        `Socket is closed. Attempting to reconnect in ${retryDelay / 1000}s`,
-        evt.reason
-      );
-      setTimeout(retryConnection, retryDelay);
-    };
-  };
-
-  useEffect(connectWs, []);
-
-  const [state, dispatch] = useReducer(
-    (
-      state: LoisDesNormsState,
-      message: { action: MessageActions; content: string }
-    ) => {
-      switch (message.action) {
-        case "updatePlayers": {
-          const newPlayers = JSON.parse(message.content) as Player[];
-          const newState = { ...state, players: newPlayers };
-          const players = newPlayers.map((x: Player) => x.player);
-          return newState;
+      ws.onopen = () => {
+        retryDelay = INITIAL_RETRY_MS;
+        setConnection({ kind: "open" });
+      };
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data) as Message;
+          if (msg.action) dispatch(msg);
+        } catch (err) {
+          console.error("Invalid websocket message", err);
         }
-        case "updateState": {
-          const newState = JSON.parse(message.content as string);
-          newState.availablePlayers[""] = { name: undefined, stat: {} };
-          return newState;
-        }
-      }
-      return state;
-    },
-    {
-      players: [
-        emptyPlayer(),
-        emptyPlayer(),
-        emptyPlayer(),
-        emptyPlayer(),
-        emptyPlayer(),
-      ],
-      rollCount: 0,
-      gameInProgress: false,
-      gameId: -1,
-      nextRollTimer: 0,
-      canRoll: false,
-      availablePlayers: { "": emptyDiscordPlayer() },
-      discordGuild: "",
-      discordGuildChannel: "",
-      leagueVersion: "",
+      };
+      ws.onerror = (err) => {
+        console.error("Socket encountered error, closing", err);
+        ws.close();
+      };
+      ws.onclose = (evt) => {
+        if (wsRef.current === ws) wsRef.current = null;
+        if (disposed) return;
+        console.warn(
+          `Socket closed (${evt.reason || evt.code}). Reconnecting in ${retryDelay / 1000}s`
+        );
+        setConnection({ kind: "closed", attempt, retryInMs: retryDelay });
+        retryTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
+      };
+    };
+
+    connect();
+    return () => {
+      disposed = true;
+      clearTimeout(retryTimer);
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, []);
+
+  const send = useCallback((action: string, content?: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn(`Socket not open, dropping action "${action}"`);
+      return;
     }
-  );
+    ws.send(JSON.stringify({ action, content }));
+  }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const reset = (_: unknown) => {
-    wsState.ws?.send(JSON.stringify({ action: "reset", content: undefined }));
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const roll = (_: unknown) => {
-    wsState.ws?.send(JSON.stringify({ action: "roll", content: undefined }));
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const cancel = (_: unknown) => {
-    wsState.ws?.send(JSON.stringify({ action: "cancel", content: undefined }));
-  };
+  const reset = () => send("reset");
+  const roll = () => send("roll");
+  const cancel = () => send("cancel");
 
   const onPlayerChange = (event: SelectChangeEvent<string>, index: number) => {
-    const playerChangeId = event.target.value as string;
-    const playersCopy = [...state.players];
-    const previousPlayer = playersCopy[index].player;
-    if (playerChangeId !== playersCopy[index]?.player?.id) {
-      for (let i = 0; i < playersCopy.length; i++) {
-        if (playersCopy[i].player.id === playerChangeId) {
-          playersCopy[i].player = previousPlayer;
-          break;
-        }
-      }
-      playersCopy[index] = {
-        ...playersCopy[index],
-        player: {
-          id: playerChangeId,
-          name: state.availablePlayers[playerChangeId].name,
-        },
-      };
-      const content = JSON.stringify(playersCopy)
-      dispatch({ action: "updatePlayers", content: content });
-      const contentws = JSON.stringify(playersCopy.map(p => p.player))
-      console.log(contentws)
-      wsState.ws?.send(
-        JSON.stringify({
-          action: "updatePlayers",
-          content: contentws,
-        })
-      );
+    const newId = event.target.value;
+    const current = state.players[index];
+    if (newId === current.player.id) return;
 
+    const players = state.players.map((p) => ({ ...p, player: { ...p.player } }));
+    // Picking an already-seated player swaps the two seats. Picking "empty" just
+    // clears this seat; it must never move the current player somewhere else.
+    const swapIndex = newId === "" ? -1 : players.findIndex((p) => p.player.id === newId);
+    if (swapIndex >= 0) {
+      players[swapIndex].player = { ...current.player };
     }
+    players[index].player = {
+      id: newId,
+      name: state.availablePlayers[newId]?.name,
+    };
+
+    dispatch({ action: "updatePlayers", content: JSON.stringify(players) });
+    send("updatePlayers", JSON.stringify(players.map((p) => p.player)));
   };
 
+  const title = (
+    <Typography variant="h4" component="h4" align="center">
+      Lois Des Norms
+    </Typography>
+  );
+
+  const connectionBanner =
+    connection.kind === "open" ? null : (
+      <Alert severity={connection.kind === "closed" ? "warning" : "info"}>
+        {connection.kind === "closed"
+          ? `Connection lost. Retrying in ${Math.round(connection.retryInMs / 1000)}s (attempt ${connection.attempt})…`
+          : connection.attempt === 1
+            ? "Connecting to the game server…"
+            : `Connecting to the game server (attempt ${connection.attempt})…`}
+      </Alert>
+    );
+
   if (state.gameId < 0) {
-    <Container>
-      <Typography variant="h4" component="h4" align="center">
-        Lois Des Norms
-      </Typography>
-      <CircularProgress />
-    </Container>;
+    return (
+      <Container>
+        {title}
+        {connectionBanner}
+        <CircularProgress />
+      </Container>
+    );
   }
 
   return (
     <Container>
-      <Typography variant="h4" component="h4" align="center">
-        Lois Des Norms
-      </Typography>
+      {title}
+      {connectionBanner}
       <Typography variant="h5" component="h5" align="center">
-        Connected Server : {state.discordGuild}
+        Connected Server : {state.discordGuildName || state.discordGuild}
       </Typography>
       <Typography variant="h5" component="h5" align="center">
         Voice Channel : {state.discordGuildChannel}
@@ -202,7 +202,7 @@ const LoisDesNorms = () => {
             players={state.players}
             availablePlayers={state.availablePlayers}
             canRoll={state.canRoll}
-            nextRollTimer={state.nextRollTimer}
+            nextRollAt={state.nextRollAt}
             leagueVersion={state.leagueVersion}
             reset={reset}
             roll={roll}
@@ -211,9 +211,7 @@ const LoisDesNorms = () => {
           />
         </Grid>
         <Grid item>
-          <AdditionalInformationBlock
-            availablePlayers={state.availablePlayers}
-          />
+          <AdditionalInformationBlock availablePlayers={state.availablePlayers} />
         </Grid>
       </Grid>
     </Container>

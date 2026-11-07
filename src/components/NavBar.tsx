@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   AppBar,
   Box,
@@ -13,86 +13,91 @@ import {
   Avatar,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import { useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 import {
+  AppRoute,
   cryptoRoutes,
   gamesToolRoutes,
   homeRoute,
-  expensesTracker,
   otherProjects,
+  profile,
   routes,
 } from "../routes";
-import { Link as RouterLink } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
 
-const NavBar = () => {
-  const [anchorElNav, setAnchorElNav] = useState<HTMLElement | null>(null);
-  const [anchorElCrypto, setAnchorElCrypto] = useState<HTMLElement | null>(
-    null
-  );
-  const [anchorElGames, setAnchorElGames] = useState<HTMLElement | null>(null);
-  const [anchorElProfile, setAnchorElProfile] = useState<HTMLElement | null>(
-    null
-  );
+type Anchor = HTMLElement | null;
 
-  const handleOpenUserMenu = (
-    event: React.MouseEvent<HTMLElement>,
-    anchorSet: (value: React.SetStateAction<HTMLElement | null>) => void
-  ) => {
-    anchorSet(event.currentTarget);
-  };
-
-  const handleCloseNavMenu = (
-    anchorSet: (value: React.SetStateAction<HTMLElement | null>) => void
-  ) => {
-    anchorSet(null);
-  };
-
-  const buttonNavGenerator = (route: { name: string; path: string }) => {
-    return (
+const DropdownMenu = (props: {
+  id: string;
+  label: string;
+  routes: AppRoute[];
+}) => {
+  const [anchor, setAnchor] = useState<Anchor>(null);
+  return (
+    <>
       <Button
-        component={RouterLink}
-        to={route.path}
-        key={route.name + "-nav"}
-        onClick={() => {
-          handleCloseNavMenu(setAnchorElNav);
-        }}
+        onClick={(event) => setAnchor(event.currentTarget)}
         sx={{ my: 2, color: "white", display: "block" }}
       >
-        {route.name}
+        {props.label}
       </Button>
-    );
-  };
-
-  const menuItemNavGenerator = (route: { name: string; path: string }) => {
-    return (
-      <MenuItem
-        key={route.name + "-nav"}
-        component={RouterLink}
-        to={route.path}
-        onClick={() => {
-          handleCloseNavMenu(setAnchorElNav);
-        }}
+      <Menu
+        id={props.id}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        keepMounted
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={() => setAnchor(null)}
       >
-        <Typography textAlign="center">{route.name}</Typography>
-      </MenuItem>
-    );
-  };
+        {props.routes.map((route) => (
+          <MenuItem
+            key={route.name}
+            component={RouterLink}
+            to={route.path}
+            onClick={() => setAnchor(null)}
+          >
+            <Typography textAlign="center">{route.name}</Typography>
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
+};
 
+const NavBar = () => {
+  const [anchorElNav, setAnchorElNav] = useState<Anchor>(null);
+  const [anchorElProfile, setAnchorElProfile] = useState<Anchor>(null);
   const { isAuthenticated, loginWithRedirect, logout, user } = useAuth0();
-  console.log(isAuthenticated);
-  console.log(user);
+
+  const navButton = (route: AppRoute) => (
+    <Button
+      component={RouterLink}
+      to={route.path}
+      key={route.name}
+      sx={{ my: 2, color: "white", display: "block" }}
+    >
+      {route.name}
+    </Button>
+  );
+
   const profileButton = !isAuthenticated ? (
-    <Button onClick={() => loginWithRedirect()} sx={{ my: 2, color: "white" }}>
+    <Button
+      onClick={() =>
+        loginWithRedirect({
+          appState: { returnTo: window.location.pathname + window.location.search },
+        })
+      }
+      sx={{ my: 2, color: "white" }}
+    >
       Login
     </Button>
   ) : (
     <Box sx={{ flexGrow: 0 }}>
       <Tooltip title="Open settings">
         <IconButton
-          onClick={(event: React.MouseEvent<HTMLElement>) => {
-            handleOpenUserMenu(event, setAnchorElProfile);
-          }}
+          onClick={(event: React.MouseEvent<HTMLElement>) =>
+            setAnchorElProfile(event.currentTarget)
+          }
           sx={{ p: 0 }}
         >
           <Avatar alt={user?.name} src={user?.picture} />
@@ -100,33 +105,26 @@ const NavBar = () => {
       </Tooltip>
       <Menu
         sx={{ mt: "45px" }}
-        id="menu-appbar"
+        id="menu-profile"
         anchorEl={anchorElProfile}
-        anchorOrigin={{
-          vertical: "top",
-          horizontal: "right",
-        }}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
         keepMounted
-        transformOrigin={{
-          vertical: "top",
-          horizontal: "right",
-        }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
         open={Boolean(anchorElProfile)}
-        onClose={() => {
-          handleCloseNavMenu(setAnchorElProfile);
-        }}
+        onClose={() => setAnchorElProfile(null)}
       >
         <MenuItem
-          key="profile"
           component={RouterLink}
-          to="/profile"
-          onClick={() => {
-            handleCloseNavMenu(setAnchorElProfile);
-          }}
+          to={profile.path}
+          onClick={() => setAnchorElProfile(null)}
         >
           <Typography textAlign="center">Profile</Typography>
         </MenuItem>
-        <MenuItem key="logout" onClick={() => logout()}>
+        <MenuItem
+          onClick={() =>
+            logout({ logoutParams: { returnTo: window.location.origin } })
+          }
+        >
           <Typography textAlign="center">Logout</Typography>
         </MenuItem>
       </Menu>
@@ -150,26 +148,31 @@ const NavBar = () => {
               <IconButton
                 size="large"
                 color="inherit"
-                onClick={(event: React.MouseEvent<HTMLElement>) => {
-                  handleOpenUserMenu(event, setAnchorElNav);
-                }}
+                aria-label="open navigation"
+                onClick={(event: React.MouseEvent<HTMLElement>) =>
+                  setAnchorElNav(event.currentTarget)
+                }
               >
                 <MenuIcon />
               </IconButton>
               <Menu
                 id="navigation-menu"
-                anchorOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
                 keepMounted
                 anchorEl={anchorElNav}
                 open={Boolean(anchorElNav)}
-                onClose={() => {
-                  handleCloseNavMenu(setAnchorElNav);
-                }}
+                onClose={() => setAnchorElNav(null)}
               >
-                {routes.map(menuItemNavGenerator)}
+                {routes.map((route) => (
+                  <MenuItem
+                    key={route.name}
+                    component={RouterLink}
+                    to={route.path}
+                    onClick={() => setAnchorElNav(null)}
+                  >
+                    <Typography textAlign="center">{route.name}</Typography>
+                  </MenuItem>
+                ))}
               </Menu>
             </Box>
             <Typography
@@ -181,56 +184,18 @@ const NavBar = () => {
               BonJack Tools
             </Typography>
             <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" } }}>
-              {buttonNavGenerator(homeRoute)}
-
-              <Button
-                onClick={(event: React.MouseEvent<HTMLElement>) => {
-                  handleOpenUserMenu(event, setAnchorElCrypto);
-                }}
-                sx={{ my: 2, color: "white", display: "block" }}
-              >
-                {cryptoRoutes.name}
-              </Button>
-              <Menu
-                id={`navigation-menu-${cryptoRoutes.name}`}
-                anchorOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
-                keepMounted
-                anchorEl={anchorElCrypto}
-                open={Boolean(anchorElCrypto)}
-                onClose={() => {
-                  handleCloseNavMenu(setAnchorElCrypto);
-                }}
-              >
-                {cryptoRoutes.routes.map(menuItemNavGenerator)}
-              </Menu>
-              <Button
-                onClick={(event: React.MouseEvent<HTMLElement>) => {
-                  handleOpenUserMenu(event, setAnchorElGames);
-                }}
-                sx={{ my: 2, color: "white", display: "block" }}
-              >
-                {gamesToolRoutes.name}
-              </Button>
-              <Menu
-                id={`navigation-menu-${gamesToolRoutes.name}`}
-                anchorOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
-                keepMounted
-                anchorEl={anchorElGames}
-                open={Boolean(anchorElGames)}
-                onClose={() => {
-                  handleCloseNavMenu(setAnchorElGames);
-                }}
-              >
-                {gamesToolRoutes.routes.map(menuItemNavGenerator)}
-              </Menu>
-              {buttonNavGenerator(expensesTracker)}
-              {buttonNavGenerator(otherProjects)}
+              {navButton(homeRoute)}
+              <DropdownMenu
+                id="navigation-menu-crypto"
+                label={cryptoRoutes.name}
+                routes={cryptoRoutes.routes}
+              />
+              <DropdownMenu
+                id="navigation-menu-games"
+                label={gamesToolRoutes.name}
+                routes={gamesToolRoutes.routes}
+              />
+              {navButton(otherProjects)}
             </Box>
             {profileButton}
           </Toolbar>
