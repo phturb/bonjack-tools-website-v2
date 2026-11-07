@@ -1,0 +1,11 @@
+spec:
+  name: bonjack-tools
+  static_sites:
+    - environment_slug: html
+      build_command: yarn build
+      output_dir: dist
+      github:
+        branch: main
+        deploy_on_push: true
+        repo: phturb/bonjack-tools-website-v2
+      name: bonjack-tools-website
