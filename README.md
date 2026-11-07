@@ -1,6 +1,6 @@
 # Bonjack Tools
 
-Personal tools website (React 19, MUI, rsbuild). Deployed to DigitalOcean App Platform on push to `main` (see `.do/app.yaml`).
+Personal tools website (React 19, MUI, rsbuild, TypeScript 7, oxlint). Requires Node 24 or newer, 26 LTS pinned in (`.nvmrc`). Deployed to DigitalOcean App Platform on push to `main` (see `.do/app.yaml`).
 
 ## Scripts
 
@@ -8,9 +8,9 @@ Personal tools website (React 19, MUI, rsbuild). Deployed to DigitalOcean App Pl
 yarn dev        # dev server with HMR
 yarn build      # production build to dist/
 yarn preview    # serve dist/
-yarn typecheck  # tsc
-yarn lint       # eslint
-yarn check      # typecheck + lint + build
+yarn lint       # oxlint with type-aware rules and TypeScript 7 type-check (tsgolint)
+yarn typecheck  # plain tsc, same checker as the build
+yarn check      # lint + build
 ```
 
 ## Environment

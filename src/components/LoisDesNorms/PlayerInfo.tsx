@@ -25,7 +25,7 @@ export interface PlayerInfoProperties {
   availablePlayers: AvailablePlayers;
   playerId: string;
   leagueVersion: string;
-  onChange: (event: SelectChangeEvent<string>, index: number) => void;
+  onChange: (event: SelectChangeEvent, index: number) => void;
   role?: LeagueOfLegendsRole;
   champion?: Champion;
 }

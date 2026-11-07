@@ -49,7 +49,7 @@ const Stats = (props: { availablePlayers: AvailablePlayers }) => {
           fill={theme.palette.secondary.main}
           onClick={(data) => {
             const id = (data as { payload?: { id?: string } }).payload?.id;
-            if (id && id !== TEAM_ID) navigate(`/profile?id=${encodeURIComponent(id)}`);
+            if (id && id !== TEAM_ID) void navigate(`/profile?id=${encodeURIComponent(id)}`);
           }}
         />
       </BarChart>

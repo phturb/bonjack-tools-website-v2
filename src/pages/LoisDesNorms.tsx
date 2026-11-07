@@ -130,7 +130,7 @@ const LoisDesNorms = () => {
   const roll = () => send("roll");
   const cancel = () => send("cancel");
 
-  const onPlayerChange = (event: SelectChangeEvent<string>, index: number) => {
+  const onPlayerChange = (event: SelectChangeEvent, index: number) => {
     const newId = event.target.value;
     const current = state.players[index];
     if (newId === current.player.id) return;

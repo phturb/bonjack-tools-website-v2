@@ -97,7 +97,7 @@ const GuessingComponent = (props: GuessingComponentProps) => {
       return tracks;
     };
 
-    (async () => {
+    void (async () => {
       try {
         const playlist = await spotifyApi.getPlaylist(playlistId, {});
         const tracks = await fetchAllTracks();
@@ -279,7 +279,7 @@ const GuessingComponent = (props: GuessingComponentProps) => {
           {availableDevices
             .filter((d) => d.id)
             .map((d) => (
-              <MenuItem key={d.id!} value={d.id!}>
+              <MenuItem key={d.id} value={d.id!}>
                 {d.name}
               </MenuItem>
             ))}

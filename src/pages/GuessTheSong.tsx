@@ -26,7 +26,7 @@ const GuessTheSong = () => {
     : exchangeError;
 
   useEffect(() => {
-    if (!code || !state || token) return;
+    if (!code || !state || token) return undefined;
     let cancelled = false;
     finishSpotifyLogin(code, state)
       .then((accessToken) => {

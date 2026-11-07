@@ -70,6 +70,9 @@ const ChampionsGrid = (props: { discordId: string; isLoggedInUser: boolean }) =>
       const token = await getAccessTokenSilently({
         authorizationParams: { audience: AUTH0_AUDIENCE },
       });
+      if (!token) {
+        throw new Error("Could not get an access token, please log in again.");
+      }
       const payload = champions.map((c) => ({
         id: c.id,
         owned: rowSelectionModel.ids.has(c.id),
@@ -78,7 +81,7 @@ const ChampionsGrid = (props: { discordId: string; isLoggedInUser: boolean }) =>
     },
     onSuccess: () => {
       setSelection(null);
-      queryClient.invalidateQueries({ queryKey: ["player-champions", discordId] });
+      void queryClient.invalidateQueries({ queryKey: ["player-champions", discordId] });
     },
   });
 
