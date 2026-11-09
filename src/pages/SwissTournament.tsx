@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  claimParticipant,
   closeRound,
   deleteTournament,
   dropParticipant,
@@ -26,6 +27,7 @@ import {
   setMatchResult,
   startPlayoffs,
   startTournament,
+  unclaimParticipant,
   undoRound,
   updateTournament,
 } from "../api/swiss";
@@ -51,6 +53,23 @@ import ActionBar from "../components/Swiss/ActionBar";
 import ConfirmDialog from "../components/Swiss/ConfirmDialog";
 import { useSwissMutation } from "../components/Swiss/useSwissMutation";
 import PlayoffBracket from "../components/Swiss/PlayoffBracket";
+import SeatLink from "../components/Swiss/SeatLink";
+
+/** Claim / unlink mutations shared by the draft and live views. */
+const useSeatLinks = (tournamentId: string) => {
+  const claim = useSwissMutation(tournamentId, (token, participantId: string) =>
+    claimParticipant(tournamentId, token, participantId)
+  );
+  const unclaim = useSwissMutation(tournamentId, (token, participantId: string) =>
+    unclaimParticipant(tournamentId, token, participantId)
+  );
+  return {
+    busy: claim.isPending || unclaim.isPending,
+    error: errorOf(claim) ?? errorOf(unclaim),
+    onClaim: (p: Participant) => claim.mutate(p.id),
+    onUnclaim: (p: Participant) => unclaim.mutate(p.id),
+  };
+};
 import DevIdentityField from "../components/Swiss/DevIdentityField";
 
 const POLL_INTERVAL_MS = 5000;
@@ -119,10 +138,17 @@ const Header = ({ tournament }: { tournament: Tournament }) => (
   </Stack>
 );
 
+interface ViewProps {
+  tournament: Tournament;
+  isOwner: boolean;
+  callerPlayerId?: string;
+}
+
 /** Draft tournament: config form, participants editor and the Start button (creator), or a read-only summary. */
-const DraftView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: boolean }) => {
+const DraftView = ({ tournament, isOwner, callerPlayerId }: ViewProps) => {
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState<"start" | "delete" | null>(null);
+  const seats = useSeatLinks(tournament.id);
 
   const update = useSwissMutation(tournament.id, (token, input: TournamentInput) =>
     updateTournament(tournament.id, token, input)
@@ -149,11 +175,26 @@ const DraftView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: b
         </Typography>
         <List dense>
           {sorted.map((p) => (
-            <ListItem key={p.id} disableGutters>
+            <ListItem
+              key={p.id}
+              disableGutters
+              secondaryAction={
+                <SeatLink
+                  tournament={tournament}
+                  participant={p}
+                  callerPlayerId={callerPlayerId}
+                  isOwner={false}
+                  busy={seats.busy}
+                  onClaim={seats.onClaim}
+                  onUnclaim={seats.onUnclaim}
+                />
+              }
+            >
               <ListItemText primary={`(${p.seed}) ${p.name}`} />
             </ListItem>
           ))}
         </List>
+        {seats.error && <Alert severity="error">{seats.error}</Alert>}
       </Container>
     );
   }
@@ -240,10 +281,11 @@ const DraftView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: b
 };
 
 /** In-progress or completed tournament: bracket graph, standings and creator actions. */
-const LiveView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: boolean }) => {
+const LiveView = ({ tournament, isOwner, callerPlayerId }: ViewProps) => {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Match | null>(null);
   const [dropCandidate, setDropCandidate] = useState<Participant | null>(null);
+  const seats = useSeatLinks(tournament.id);
 
   const result = useSwissMutation(
     tournament.id,
@@ -303,7 +345,17 @@ const LiveView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: bo
         tournament={tournament}
         onDrop={canEdit ? (p) => setDropCandidate(p) : undefined}
         dropping={drop.isPending}
+        callerPlayerId={callerPlayerId}
+        isOwner={isOwner}
+        linking={seats.busy}
+        onClaim={seats.onClaim}
+        onUnclaim={seats.onUnclaim}
       />
+      {seats.error && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          {seats.error}
+        </Alert>
+      )}
       {isOwner && (
         <Stack sx={{ mt: 2 }}>
           <ActionBar
@@ -343,7 +395,7 @@ const LiveView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: bo
 
 const SwissTournament = () => {
   const { id = "" } = useParams<{ id: string }>();
-  const { sub } = useCallerIdentity();
+  const { sub, playerId } = useCallerIdentity();
 
   const query = useQuery({
     queryKey: ["swiss", id],
@@ -381,9 +433,9 @@ const SwissTournament = () => {
   const isOwner = sub !== undefined && tournament.ownerSub === sub;
 
   return tournament.status === "draft" ? (
-    <DraftView tournament={tournament} isOwner={isOwner} />
+    <DraftView tournament={tournament} isOwner={isOwner} callerPlayerId={playerId} />
   ) : (
-    <LiveView tournament={tournament} isOwner={isOwner} />
+    <LiveView tournament={tournament} isOwner={isOwner} callerPlayerId={playerId} />
   );
 };
 

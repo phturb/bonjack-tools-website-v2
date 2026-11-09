@@ -3,6 +3,7 @@ import { API_HTTP_ENDPOINT } from "../config/config";
 import {
   MatchResultInput,
   ParticipantInput,
+  SwissPlayer,
   Tournament,
   TournamentInput,
   TournamentSummary,
@@ -16,6 +17,26 @@ const auth = (token: string) => ({
 
 export const listTournaments = () =>
   axios.get<TournamentSummary[]>(base).then((res) => res.data);
+
+export const listPlayers = () =>
+  axios.get<SwissPlayer[]>(`${base}/players`).then((res) => res.data);
+
+export const claimParticipant = (id: string, token: string, participantId: string) =>
+  axios
+    .post<Tournament>(
+      `${tournamentUrl(id)}/participants/${encodeURIComponent(participantId)}/claim`,
+      null,
+      auth(token)
+    )
+    .then((res) => res.data);
+
+export const unclaimParticipant = (id: string, token: string, participantId: string) =>
+  axios
+    .delete<Tournament>(
+      `${tournamentUrl(id)}/participants/${encodeURIComponent(participantId)}/claim`,
+      auth(token)
+    )
+    .then((res) => res.data);
 
 export const getTournament = (id: string) =>
   axios.get<Tournament>(tournamentUrl(id)).then((res) => res.data);

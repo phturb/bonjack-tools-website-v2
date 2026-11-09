@@ -53,12 +53,22 @@ const subscribeDevSubject = (onChange: () => void) => {
 export const useDevSubject = () =>
   useSyncExternalStore(subscribeDevSubject, readDevSubject, () => DEV_SUBJECT);
 
-/** The caller's identity as the API sees it: Auth0 `sub`, or the dev identity locally. */
+/** Discord id of an Auth0 subject such as "oauth2|discord|123", undefined otherwise. */
+export const discordIdOf = (sub: string | undefined): string | undefined => {
+  const parts = sub?.split("|") ?? [];
+  return parts.length >= 3 && parts.slice(0, -1).includes("discord") ? parts[parts.length - 1] : undefined;
+};
+
+/**
+ * The caller's identity as the API sees it: Auth0 `sub`, or the dev identity
+ * locally. `playerId` is the id the backend links seats to (the Discord id, or
+ * the dev identity itself).
+ */
 export const useCallerIdentity = () => {
   const { isAuthenticated, user } = useAuth0();
   const devSubject = useDevSubject();
-  if (!AUTH_CONFIGURED) return { isAuthenticated: true, sub: devSubject };
-  return { isAuthenticated, sub: user?.sub };
+  if (!AUTH_CONFIGURED) return { isAuthenticated: true, sub: devSubject, playerId: devSubject };
+  return { isAuthenticated, sub: user?.sub, playerId: discordIdOf(user?.sub) };
 };
 
 /** Resolve an API access token, failing clearly when none is available. */

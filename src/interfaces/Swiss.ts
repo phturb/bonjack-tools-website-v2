@@ -34,6 +34,9 @@ export interface Participant {
   losses: number;
   buchholz: number;
   status: ParticipantStatus;
+  /** Linked site user (Discord id) and their known name, null when unlinked. */
+  playerId: string | null;
+  playerName: string | null;
 }
 
 /** Body item of PUT /swiss/{id}/participants. */
@@ -41,6 +44,14 @@ export interface ParticipantInput {
   id?: string;
   name: string;
   seed: number;
+  /** Existing site user to link; omit or null to leave the seat unlinked. */
+  playerId?: string | null;
+}
+
+/** Entry of GET /swiss/players: a site user known to the backend. */
+export interface SwissPlayer {
+  id: string;
+  name: string | null;
 }
 
 export interface Bucket {

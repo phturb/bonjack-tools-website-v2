@@ -11,12 +11,19 @@ import {
 } from "@mui/material";
 import { Participant, ParticipantStatus, Tournament } from "../../interfaces/Swiss";
 import { participantMap } from "../../helpers/swiss";
+import SeatLink from "./SeatLink";
 
 interface Props {
   tournament: Tournament;
   /** Creator only, while in progress: drop an active participant. */
   onDrop?: (participant: Participant) => void;
   dropping?: boolean;
+  /** Seat linking (see SeatLink). */
+  callerPlayerId?: string;
+  isOwner?: boolean;
+  linking?: boolean;
+  onClaim?: (participant: Participant) => void;
+  onUnclaim?: (participant: Participant) => void;
 }
 
 const statusColor: Record<ParticipantStatus, "default" | "success" | "error" | "warning"> = {
@@ -26,7 +33,8 @@ const statusColor: Record<ParticipantStatus, "default" | "success" | "error" | "
   dropped: "warning",
 };
 
-const StandingsTable = ({ tournament, onDrop, dropping = false }: Props) => {
+const StandingsTable = (props: Props) => {
+  const { tournament, onDrop, dropping = false, callerPlayerId, isOwner = false, linking, onClaim, onUnclaim } = props;
   const byId = participantMap(tournament);
   const ordered = tournament.standings
     .map((id) => byId.get(id))
@@ -47,6 +55,7 @@ const StandingsTable = ({ tournament, onDrop, dropping = false }: Props) => {
             <TableCell align="right">W-L</TableCell>
             <TableCell align="right">Buchholz</TableCell>
             <TableCell>Status</TableCell>
+            <TableCell>User</TableCell>
             {onDrop && <TableCell />}
           </TableRow>
         </TableHead>
@@ -62,6 +71,17 @@ const StandingsTable = ({ tournament, onDrop, dropping = false }: Props) => {
               <TableCell align="right">{p.buchholz}</TableCell>
               <TableCell>
                 <Chip label={p.status} size="small" color={statusColor[p.status]} />
+              </TableCell>
+              <TableCell>
+                <SeatLink
+                  tournament={tournament}
+                  participant={p}
+                  callerPlayerId={callerPlayerId}
+                  isOwner={isOwner}
+                  busy={linking}
+                  onClaim={onClaim}
+                  onUnclaim={onUnclaim}
+                />
               </TableCell>
               {onDrop && (
                 <TableCell align="right">

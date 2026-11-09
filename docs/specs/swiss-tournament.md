@@ -235,6 +235,16 @@ A single-elimination bracket decides a champion among the participants that adva
 - **Storage**: playoff matches are `swiss_matches` rows with `stage = "playoffs"`, `bucket` 0-0. Swiss standings, Buchholz and participant statuses ignore them.
 - **UI**: the tournament page shows the playoff bracket above the Swiss graph (columns named Round of N, Quarterfinals, Semifinals, Final), a champion banner when finished, and in the action bar a "Start playoffs (k qualified)" button with a best-of select while `completed`. The list page labels the statuses "Swiss done", "Playoffs", "Finished".
 
+## 14. Seat links (v1.2)
+
+A participant may be linked to a site user (the `players` table, keyed by Discord id, the same identity as the Profile page). `participants[].playerId` / `playerName` carry the link; both null when unlinked.
+
+- **Owner assigns** (existing users): the participants editor has a "User" autocomplete fed by `GET /api/swiss/players`; `PUT /participants` entries carry `playerId`. Unknown ids are rejected (422), a user can hold one seat per tournament (422).
+- **Self-claim** (any user, seen by the bot or not): a logged-in Discord user presses "This is me" on an unlinked seat, `POST /api/swiss/{id}/participants/{pid}/claim`. The backend creates the `players` row when missing (name filled in later by the Discord bot). Refused with 409 when the seat is taken or the caller already holds another seat, 403 without a Discord identity, 409 once `finished`. Idempotent for the same user.
+- **Unlink**: `DELETE .../claim`, creator or the linked user (403 otherwise).
+- **UI**: a link chip next to the name in the standings and the draft participant list ("you" for the viewer's own seat, the Discord name otherwise), with "This is me" / "Unlink" when allowed.
+- **Dev mode**: without JWT the bearer value is the player id, so `swissdev` plus the "Acting as" field exercises both paths.
+
 ## 12. Open questions
 
 1. Should `decidersBestOf` default to 3 when `bestOf` is 1, as majors do, or stay equal to `bestOf`?
