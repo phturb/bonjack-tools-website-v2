@@ -201,6 +201,7 @@ const LoisDesNorms = () => {
             rollCount={state.rollCount}
             players={state.players}
             availablePlayers={state.availablePlayers}
+            gameInProgress={state.gameInProgress}
             canRoll={state.canRoll}
             nextRollAt={state.nextRollAt}
             leagueVersion={state.leagueVersion}

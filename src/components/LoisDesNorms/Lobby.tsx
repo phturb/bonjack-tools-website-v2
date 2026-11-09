@@ -15,6 +15,8 @@ export interface LobbyProperties {
   players: Player[];
   availablePlayers: AvailablePlayers;
   leagueVersion: string;
+  /** False between games: only Start is shown. Cancel, Finish and Roll need a game. */
+  gameInProgress: boolean;
   canRoll: boolean;
   /** Epoch ms at which the next roll becomes available. */
   nextRollAt: number;
@@ -52,21 +54,29 @@ const Lobby = (props: LobbyProperties) => {
         ))}
 
         <Stack direction="row" spacing={2} justifyContent="space-around">
-          <Button variant="outlined" onClick={props.cancel}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={props.reset}>
-            Finish
-          </Button>
-
-          {props.canRoll ? (
-            <Button variant="contained" onClick={props.roll}>
-              Roll
-            </Button>
+          {props.gameInProgress ? (
+            <>
+              <Button variant="outlined" onClick={props.cancel}>
+                Cancel
+              </Button>
+              <Button variant="contained" onClick={props.reset}>
+                Finish
+              </Button>
+              {props.canRoll ? (
+                <Button variant="contained" onClick={props.roll}>
+                  Roll
+                </Button>
+              ) : (
+                <Box>
+                  <Countdown date={props.nextRollAt} />
+                </Box>
+              )}
+            </>
           ) : (
-            <Box>
-              <Countdown date={props.nextRollAt} />
-            </Box>
+            // The first roll creates the game on the backend.
+            <Button variant="contained" onClick={props.roll} disabled={!props.canRoll}>
+              Start
+            </Button>
           )}
         </Stack>
       </Stack>
