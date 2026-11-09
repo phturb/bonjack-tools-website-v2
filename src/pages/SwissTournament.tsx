@@ -24,11 +24,13 @@ import {
   getTournament,
   replaceParticipants,
   setMatchResult,
+  startPlayoffs,
   startTournament,
   undoRound,
   updateTournament,
 } from "../api/swiss";
 import {
+  BestOf,
   Match,
   MatchResultInput,
   PARTICIPANT_WARNING_THRESHOLD,
@@ -48,6 +50,7 @@ import StandingsTable from "../components/Swiss/StandingsTable";
 import ActionBar from "../components/Swiss/ActionBar";
 import ConfirmDialog from "../components/Swiss/ConfirmDialog";
 import { useSwissMutation } from "../components/Swiss/useSwissMutation";
+import PlayoffBracket from "../components/Swiss/PlayoffBracket";
 import DevIdentityField from "../components/Swiss/DevIdentityField";
 
 const POLL_INTERVAL_MS = 5000;
@@ -55,7 +58,9 @@ const POLL_INTERVAL_MS = 5000;
 const statusLabel: Record<TournamentStatus, string> = {
   draft: "Draft",
   in_progress: "In progress",
-  completed: "Completed",
+  completed: "Swiss done",
+  playoffs: "Playoffs",
+  finished: "Finished",
 };
 
 const Title = ({ children }: { children: React.ReactNode }) => (
@@ -247,6 +252,12 @@ const LiveView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: bo
     () => setSelected(null)
   );
   const close = useSwissMutation(tournament.id, (token) => closeRound(tournament.id, token));
+  const playoffs = useSwissMutation(tournament.id, async (token, bestOf: BestOf) => {
+    if (bestOf !== tournament.config.playoffsBestOf) {
+      await updateTournament(tournament.id, token, { playoffsBestOf: bestOf });
+    }
+    return startPlayoffs(tournament.id, token);
+  });
   const undo = useSwissMutation(tournament.id, (token) => undoRound(tournament.id, token));
   const drop = useSwissMutation(tournament.id, (token, participantId: string) =>
     dropParticipant(tournament.id, token, participantId)
@@ -258,12 +269,29 @@ const LiveView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: bo
   );
 
   const canEdit = isOwner && tournament.status === "in_progress";
-  const busy = close.isPending || undo.isPending || drop.isPending || remove.isPending;
-  const actionError = errorOf(close) ?? errorOf(undo) ?? errorOf(drop) ?? errorOf(remove);
+  const canEditPlayoffs = isOwner && tournament.status === "playoffs";
+  const busy =
+    close.isPending || undo.isPending || drop.isPending || remove.isPending || playoffs.isPending;
+  const actionError =
+    errorOf(close) ?? errorOf(undo) ?? errorOf(drop) ?? errorOf(remove) ?? errorOf(playoffs);
 
   return (
     <Container maxWidth={false}>
       <Header tournament={tournament} />
+      {tournament.playoffs && (
+        <>
+          <Typography variant="h6" component="h3" sx={{ mb: 1 }}>
+            Playoffs · bo{tournament.playoffs.bestOf}
+          </Typography>
+          <PlayoffBracket
+            tournament={tournament}
+            onSelectMatch={canEditPlayoffs ? (match) => setSelected(match) : undefined}
+          />
+        </>
+      )}
+      <Typography variant="h6" component="h3" sx={{ mt: 2, mb: 1 }}>
+        Swiss stage
+      </Typography>
       <BracketGraph
         tournament={tournament}
         onSelectMatch={canEdit ? (match) => setSelected(match) : undefined}
@@ -284,6 +312,7 @@ const LiveView = ({ tournament, isOwner }: { tournament: Tournament; isOwner: bo
             error={actionError}
             onCloseRound={() => close.mutate()}
             onUndoRound={() => undo.mutate()}
+            onStartPlayoffs={(bestOf) => playoffs.mutate(bestOf)}
             onDelete={() => remove.mutate()}
           />
         </Stack>
@@ -322,7 +351,9 @@ const SwissTournament = () => {
     enabled: id.length > 0,
     // Poll only while the tournament is in progress (spec section 7).
     refetchInterval: (q) =>
-      q.state.data?.status === "in_progress" ? POLL_INTERVAL_MS : false,
+      q.state.data?.status === "in_progress" || q.state.data?.status === "playoffs"
+        ? POLL_INTERVAL_MS
+        : false,
   });
 
   if (query.isPending) {

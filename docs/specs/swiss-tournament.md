@@ -14,10 +14,11 @@ A page on tools.bonjack.club where a logged-in user creates a Swiss-system tourn
 - Enter and correct results; advance to the next round; undo the latest round.
 - Public read-only bracket graph at a shareable URL, auto-refreshing.
 - Advanced / eliminated lists and a standings table.
+- Playoffs (v1.1): single-elimination bracket among the advanced participants, see section 13.
 
 ### Out of scope (v1)
 
-- Teams, drafts, multi-stage events (Swiss feeding a playoff bracket).
+- Teams, drafts, other multi-stage layouts (double elimination, group stages).
 - Discord integration, player stats, Riot data.
 - Real-time push; polling is enough.
 - Fancy SVG connectors between matches; v1 uses column layout, connectors are v2.
@@ -47,6 +48,7 @@ Editable while `status = draft`. Frozen after start except `name` and `descripti
 | `lossesToEliminate` | int | 3 | 1–5 |
 | `bestOf` | int | 1 | 1, 3 or 5; applies to every match |
 | `decidersBestOf` | int | same as `bestOf` | 1, 3 or 5; applies to matches where at least one participant would advance or be eliminated with this result |
+| `playoffsBestOf` | int | same as `decidersBestOf` | 1, 3 or 5; every playoff match. The only field still editable while `completed`, frozen once the playoffs start |
 | `seeding` | enum | `manual` | `manual` (participant order) or `random` (shuffled at start with the stored `rngSeed`) |
 | `allowRematches` | bool | false | When false the pairer avoids rematches and only falls back to one if no valid pairing exists |
 | `visibility` | enum | `public` | `public` (anyone with the link) or `unlisted` (same, but not shown on the list page). No private option in v1 |
@@ -59,15 +61,17 @@ Derived values:
 ## 4. Lifecycle
 
 ```
-draft ──start──▶ in_progress ──(all advanced or eliminated)──▶ completed
-  ▲                 │
-  └── (not allowed) │ undo last round / edit result of current round
+draft ──start──▶ in_progress ──(all advanced or eliminated)──▶ completed ──start playoffs──▶ playoffs ──(final closed)──▶ finished
+  ▲                 │                                              ▲                            │
+  └── (not allowed) │ undo last round / edit result of current round └── undo playoff round 1 ───┘ undo / edit current playoff round
 ```
 
 - **draft**: config and participants editable. No matches.
 - **start**: requires ≥ 2 participants. Applies seeding, generates round 1, status → `in_progress`.
 - **in_progress**: results are entered for the current round. When every match of the current round has a result, the creator can **close the round**, which generates the next round. The creator can **undo** the latest generated round only if none of its matches has a result; results of the current round can be edited until the round is closed.
-- **completed**: set automatically when, after closing a round, no participant is still active, or when `maxRounds` have been closed. Read-only. Undo is refused (409); a completed tournament cannot be reopened in v1.
+- **completed**: set automatically when, after closing a round, no participant is still active, or when `maxRounds` have been closed. The Swiss stage is read-only. Undo is refused (409); the Swiss stage cannot be reopened. The creator may change `playoffsBestOf` and **start the playoffs** (section 13).
+- **playoffs**: results are entered for the current playoff round; closing it generates the next round or, after the final, sets `finished`. Undo removes the latest playoff round when it has no result; undoing playoff round 1 cancels the playoffs and returns to `completed`.
+- **finished**: read-only, `playoffs.champion` set.
 - **delete**: allowed in any status, creator only, with confirmation.
 
 ## 5. Pairing algorithm (server-side)
@@ -140,8 +144,9 @@ All mutations require a valid Auth0 JWT; the token `sub` is stored as `owner_sub
 | POST | `/api/swiss/{id}/participants/{pid}/drop` | – | `Tournament`; in progress only |
 | POST | `/api/swiss/{id}/start` | – | `Tournament`; draft → in progress, round 1 generated |
 | PUT | `/api/swiss/{id}/matches/{mid}/result` | `{ p1Score, p2Score }` | `Tournament`; current round only, scores must produce a valid best-of winner |
-| POST | `/api/swiss/{id}/rounds/close` | – | `Tournament`; all current matches resolved → next round or completed |
-| POST | `/api/swiss/{id}/rounds/undo` | – | `Tournament`; allowed only while in progress, when the latest round is not round 1 and has no results (byes and forfeits excepted); 409 otherwise |
+| POST | `/api/swiss/{id}/rounds/close` | – | `Tournament`; all current matches resolved → next round, or `completed` (Swiss) / `finished` (playoffs) |
+| POST | `/api/swiss/{id}/rounds/undo` | – | `Tournament`; allowed while in progress (latest round not round 1) or in playoffs, when the latest round has no results (byes and forfeits excepted); undoing playoff round 1 returns to `completed`; 409 otherwise |
+| POST | `/api/swiss/{id}/playoffs/start` | – | `Tournament`; `completed` only, 2+ advanced participants required (422), status → `playoffs` with round 1 generated |
 
 `Tournament` JSON shape:
 
@@ -150,9 +155,9 @@ All mutations require a valid Auth0 JWT; the token `sub` is stored as `owner_sub
   "id": "k7f2…",                 // short random id, used in URLs
   "name": "Friday Swiss",
   "description": "",
-  "status": "in_progress",       // draft | in_progress | completed
+  "status": "in_progress",       // draft | in_progress | completed | playoffs | finished
   "config": { "winsToAdvance": 3, "lossesToEliminate": 3, "bestOf": 1, "decidersBestOf": 3,
-              "seeding": "manual", "allowRematches": false, "visibility": "public" },
+              "playoffsBestOf": 3, "seeding": "manual", "allowRematches": false, "visibility": "public" },
   "ownerSub": "oauth2|discord|123",
   "isOwner": true,               // computed for the caller
   "createdAt": "2026-11-07T20:00:00Z",
@@ -169,7 +174,8 @@ All mutations require a valid Auth0 JWT; the token `sub` is stored as `owner_sub
           "bye": false, "rematch": false, "forfeit": false }
       ] }
   ],
-  "standings": ["p1", "p4", "…"]  // participant ids in table order
+  "standings": ["p1", "p4", "…"], // participant ids in table order (Swiss results only)
+  "playoffs": null                // or { bestOf, size, currentRound, rounds: [same shape, bucket 0-0], champion }
 }
 ```
 
@@ -177,10 +183,10 @@ All mutations require a valid Auth0 JWT; the token `sub` is stored as `owner_sub
 
 ```
 swiss_tournaments   id (text pk), name, description, status, owner_sub, rng_seed (bigint),
-                    wins_to_advance, losses_to_eliminate, best_of, deciders_best_of,
+                    wins_to_advance, losses_to_eliminate, best_of, deciders_best_of, playoffs_best_of,
                     seeding, allow_rematches, visibility, created_at, updated_at
 swiss_participants  id (text pk), tournament_id (fk, cascade), name, seed, status, had_bye (bool)
-swiss_matches       id (text pk), tournament_id (fk, cascade), round, bucket_wins, bucket_losses,
+swiss_matches       id (text pk), tournament_id (fk, cascade), stage ("" swiss | "playoffs"), round, bucket_wins, bucket_losses,
                     p1_id (fk), p2_id (fk, nullable for bye), best_of, p1_score, p2_score,
                     winner_id (fk, nullable), bye, rematch, forfeit, created_at
 ```
@@ -218,6 +224,16 @@ Package layout: `swiss/` with `model.go`, `pairing.go` (pure functions, no DB), 
 3. **Frontend draft flow**: list page, new form, participants editor, start.
 4. **Frontend graph**: bracket, result dialog, standings, polling.
 5. **Polish**: unlisted visibility, share, README, deploy notes (requires `JWT_*` set on the backend).
+
+## 13. Playoffs (v1.1)
+
+A single-elimination bracket decides a champion among the participants that advanced in the Swiss stage.
+
+- **Qualifiers**: participants with status `advanced` and not dropped, ordered by the Swiss standings; that order is the playoff seeding.
+- **Bracket**: size is the smallest power of two that fits the qualifiers. Round 1 uses the standard layout (`1 v n`, `4 v 5`, `2 v 7`, `3 v 6` for eight), so the two best seeds can only meet in the final. Missing opponents are byes for the better seeds. Round `k+1` pairs the winners of consecutive round-`k` matches.
+- **Lifecycle**: same as Swiss rounds. Results of the current playoff round are editable until it is closed; closing the final sets `finished` and `playoffs.champion`. No third-place match.
+- **Storage**: playoff matches are `swiss_matches` rows with `stage = "playoffs"`, `bucket` 0-0. Swiss standings, Buchholz and participant statuses ignore them.
+- **UI**: the tournament page shows the playoff bracket above the Swiss graph (columns named Round of N, Quarterfinals, Semifinals, Final), a champion banner when finished, and in the action bar a "Start playoffs (k qualified)" button with a best-of select while `completed`. The list page labels the statuses "Swiss done", "Playoffs", "Finished".
 
 ## 12. Open questions
 

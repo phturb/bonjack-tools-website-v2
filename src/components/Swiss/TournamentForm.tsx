@@ -178,6 +178,24 @@ const TournamentForm = (props: Props) => {
           </Grid>
           <Grid item xs={6} sm={3}>
             <FormControl fullWidth disabled={configLocked}>
+              <InputLabel id="swiss-playoffs">Playoffs best of</InputLabel>
+              <Select
+                labelId="swiss-playoffs"
+                label="Playoffs best of"
+                value={values.playoffsBestOf}
+                onChange={(e) => update("playoffsBestOf", e.target.value)}
+              >
+                {BEST_OF.map((n) => (
+                  <MenuItem key={n} value={n}>
+                    Bo{n}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>Single elimination among the advanced, can change until they start</FormHelperText>
+            </FormControl>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <FormControl fullWidth disabled={configLocked}>
               <InputLabel id="swiss-seeding">Seeding</InputLabel>
               <Select
                 labelId="swiss-seeding"

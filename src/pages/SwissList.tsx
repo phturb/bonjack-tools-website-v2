@@ -21,7 +21,9 @@ import DevIdentityField from "../components/Swiss/DevIdentityField";
 const statusLabel: Record<TournamentStatus, string> = {
   draft: "Draft",
   in_progress: "In progress",
-  completed: "Completed",
+  completed: "Swiss done",
+  playoffs: "Playoffs",
+  finished: "Finished",
 };
 
 const SwissList = () => {

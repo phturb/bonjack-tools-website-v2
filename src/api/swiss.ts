@@ -72,6 +72,11 @@ export const setMatchResult = (
     )
     .then((res) => res.data);
 
+export const startPlayoffs = (id: string, token: string) =>
+  axios
+    .post<Tournament>(`${tournamentUrl(id)}/playoffs/start`, null, auth(token))
+    .then((res) => res.data);
+
 export const closeRound = (id: string, token: string) =>
   axios
     .post<Tournament>(`${tournamentUrl(id)}/rounds/close`, null, auth(token))

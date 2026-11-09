@@ -1,7 +1,8 @@
 // Types mirrored from the Go JSON of the Swiss tournament API
 // (docs/specs/swiss-tournament.md, section 8).
 
-export type TournamentStatus = "draft" | "in_progress" | "completed";
+/** `completed` is the end of the Swiss stage; playoffs may follow until `finished`. */
+export type TournamentStatus = "draft" | "in_progress" | "completed" | "playoffs" | "finished";
 export type ParticipantStatus = "active" | "advanced" | "eliminated" | "dropped";
 export type Seeding = "manual" | "random";
 export type Visibility = "public" | "unlisted";
@@ -12,6 +13,8 @@ export interface TournamentConfig {
   lossesToEliminate: number;
   bestOf: BestOf;
   decidersBestOf: BestOf;
+  /** Best-of of every playoff match. Editable until the playoffs start. */
+  playoffsBestOf: BestOf;
   seeding: Seeding;
   allowRematches: boolean;
   visibility: Visibility;
@@ -65,6 +68,17 @@ export interface Round {
   matches: Match[];
 }
 
+/** Single-elimination stage among the advanced players, present once started. */
+export interface Playoffs {
+  bestOf: BestOf;
+  /** Bracket size, a power of two; round 1 has size/2 matches (byes included). */
+  size: number;
+  currentRound: number;
+  rounds: Round[];
+  /** Winner of the final, set when the status is `finished`. */
+  champion: string | null;
+}
+
 export interface Tournament {
   id: string;
   name: string;
@@ -77,6 +91,7 @@ export interface Tournament {
   participants: Participant[];
   rounds: Round[];
   standings: string[];
+  playoffs: Playoffs | null;
 }
 
 export interface TournamentSummary {
@@ -98,6 +113,7 @@ export const DEFAULT_CONFIG: TournamentConfig = {
   lossesToEliminate: 3,
   bestOf: 1,
   decidersBestOf: 1,
+  playoffsBestOf: 1,
   seeding: "manual",
   allowRematches: false,
   visibility: "public",

@@ -63,6 +63,34 @@ export const currentRound = (tournament: Tournament): Round | undefined =>
 
 export const isResolved = (match: Match): boolean => match.winner !== null;
 
+/** Latest playoff round, if the playoffs started. */
+export const currentPlayoffRound = (tournament: Tournament): Round | undefined =>
+  tournament.playoffs?.rounds[tournament.playoffs.rounds.length - 1];
+
+/** Round whose matches can receive results: Swiss while in progress, playoffs while they run. */
+export const activeRound = (tournament: Tournament): Round | undefined => {
+  if (tournament.status === "in_progress") return currentRound(tournament);
+  if (tournament.status === "playoffs") return currentPlayoffRound(tournament);
+  return undefined;
+};
+
+/** Playoff round name by distance from the final: Final, Semifinals, Quarterfinals, Round of N. */
+export const playoffRoundLabel = (size: number, round: number): string => {
+  const players = size / 2 ** (round - 1);
+  if (players <= 2) return "Final";
+  if (players === 4) return "Semifinals";
+  if (players === 8) return "Quarterfinals";
+  return `Round of ${players}`;
+};
+
+/** Participants that qualified for the playoffs, in standings order. */
+export const qualifiers = (tournament: Tournament): Participant[] => {
+  const byId = participantMap(tournament);
+  return tournament.standings
+    .map((id) => byId.get(id))
+    .filter((p): p is Participant => p !== undefined && p.status === "advanced");
+};
+
 /** Round number in which a participant reached its final status, used to order the outcome panels. */
 export const roundReached = (tournament: Tournament, participantId: string): number => {
   let last = 0;
