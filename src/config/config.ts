@@ -10,5 +10,9 @@ export const AUTH0_DOMAIN = import.meta.env.PUBLIC_AUTH0_DOMAIN ?? "";
 export const AUTH0_CLIENT_ID = import.meta.env.PUBLIC_AUTH0_CLIENT_ID ?? "";
 export const AUTH0_AUDIENCE = import.meta.env.PUBLIC_AUTH0_AUDIENCE ?? "";
 
+// Local development only: identity sent as the bearer token when Auth0 is not
+// configured. The backend (no JWT) uses the raw value as the subject.
+export const DEV_SUBJECT = import.meta.env.PUBLIC_DEV_SUBJECT || "dev";
+
 export const SPOTIFY_CLIENT_ID =
   import.meta.env.PUBLIC_SPOTIFY_CLIENT_ID || "8ad1f30ed686473cb11eb34ce677c3fe";

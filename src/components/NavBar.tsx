@@ -20,9 +20,9 @@ import {
   cryptoRoutes,
   gamesToolRoutes,
   homeRoute,
+  menuRoutes,
   otherProjects,
   profile,
-  routes,
 } from "../routes";
 
 type Anchor = HTMLElement | null;
@@ -163,7 +163,7 @@ const NavBar = () => {
                 open={Boolean(anchorElNav)}
                 onClose={() => setAnchorElNav(null)}
               >
-                {routes.map((route) => (
+                {menuRoutes.map((route) => (
                   <MenuItem
                     key={route.name}
                     component={RouterLink}

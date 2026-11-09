@@ -6,3 +6,6 @@ export const CryptoTracker = lazy(() => import("./CryptoTracker"));
 export const GuessTheSong = lazy(() => import("./GuessTheSong"));
 export const OtherProjects = lazy(() => import("./OtherProjects"));
 export const Profile = lazy(() => import("./Profile"));
+export const SwissList = lazy(() => import("./SwissList"));
+export const SwissNew = lazy(() => import("./SwissNew"));
+export const SwissTournament = lazy(() => import("./SwissTournament"));

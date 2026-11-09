@@ -20,3 +20,8 @@ code {
   width: 100%;
 }
 
+
+/* Keep page content clear of the fixed footer so bottom controls stay clickable. */
+#root {
+  padding-bottom: 56px;
+}

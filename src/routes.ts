@@ -5,12 +5,17 @@ import {
   GuessTheSong,
   OtherProjects,
   Profile,
+  SwissList,
+  SwissNew,
+  SwissTournament,
 } from "./pages";
 
 export interface AppRoute {
   name: string;
   path: string;
   element: React.ComponentType;
+  /** Registered with the router but left out of every navigation menu. */
+  hidden?: boolean;
 }
 
 export const homeRoute: AppRoute = { name: "Home", path: "/", element: Home };
@@ -39,6 +44,23 @@ export const otherProjects: AppRoute = {
   path: "/other-projects",
   element: OtherProjects,
 };
+export const swissList: AppRoute = {
+  name: "Swiss Tournament",
+  path: "/swiss",
+  element: SwissList,
+};
+export const swissNew: AppRoute = {
+  name: "New Swiss Tournament",
+  path: "/swiss/new",
+  element: SwissNew,
+  hidden: true,
+};
+export const swissTournament: AppRoute = {
+  name: "Swiss Tournament Details",
+  path: "/swiss/:id",
+  element: SwissTournament,
+  hidden: true,
+};
 
 export const routes: AppRoute[] = [
   homeRoute,
@@ -47,7 +69,13 @@ export const routes: AppRoute[] = [
   cryptoTracker,
   profile,
   otherProjects,
+  swissList,
+  swissNew,
+  swissTournament,
 ];
+
+/** Routes shown in navigation menus. */
+export const menuRoutes: AppRoute[] = routes.filter((route) => !route.hidden);
 
 export const cryptoRoutes = {
   name: "Crypto",
@@ -56,5 +84,5 @@ export const cryptoRoutes = {
 
 export const gamesToolRoutes = {
   name: "Games Tool",
-  routes: [loisDesNormsRoute, guessTheSongRoute],
+  routes: [loisDesNormsRoute, guessTheSongRoute, swissList],
 };
