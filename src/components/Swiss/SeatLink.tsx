@@ -18,11 +18,11 @@ const SeatLink = (props: Props) => {
   const { tournament, participant, callerPlayerId, isOwner, busy = false, onClaim, onUnclaim } = props;
   const linked = participant.playerId !== null;
   const self = linked && participant.playerId === callerPlayerId;
-  const finished = tournament.status === "finished";
   const callerHasSeat =
     callerPlayerId !== undefined && tournament.participants.some((p) => p.playerId === callerPlayerId);
-  const canClaim = !finished && !linked && callerPlayerId !== undefined && !callerHasSeat && onClaim;
-  const canUnlink = !finished && linked && (isOwner || self) && onUnclaim;
+  // Linking is allowed in every status, finished included, to attribute results after the fact.
+  const canClaim = !linked && callerPlayerId !== undefined && !callerHasSeat && onClaim;
+  const canUnlink = linked && (isOwner || self) && onUnclaim;
 
   return (
     <Stack direction="row" spacing={0.5} alignItems="center">
