@@ -11,8 +11,8 @@ export interface LobbySummary {
   gameInProgress: boolean;
   rollCount: number;
   gameId: number;
-  /** Occupied seats only. */
-  players: { id: string; name?: string }[];
+  /** Occupied seats only; null (a Go nil slice) when nobody sits. */
+  players: { id: string; name?: string | null }[] | null;
   /** Open websocket connections. */
   viewers: number;
   /** RFC 3339. */
