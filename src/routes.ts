@@ -1,6 +1,7 @@
 import {
   Home,
   LoisDesNorms,
+  LoisDesNormsLobbies,
   CryptoTracker,
   GuessTheSong,
   OtherProjects,
@@ -22,7 +23,13 @@ export const homeRoute: AppRoute = { name: "Home", path: "/", element: Home };
 export const loisDesNormsRoute: AppRoute = {
   name: "Lois des Norms",
   path: "/lois-des-norms",
+  element: LoisDesNormsLobbies,
+};
+export const loisDesNormsLobbyRoute: AppRoute = {
+  name: "Lois des Norms Lobby",
+  path: "/lois-des-norms/:lobbyId",
   element: LoisDesNorms,
+  hidden: true,
 };
 export const guessTheSongRoute: AppRoute = {
   name: "Guess the Song",
@@ -65,6 +72,7 @@ export const swissTournament: AppRoute = {
 export const routes: AppRoute[] = [
   homeRoute,
   loisDesNormsRoute,
+  loisDesNormsLobbyRoute,
   guessTheSongRoute,
   cryptoTracker,
   profile,

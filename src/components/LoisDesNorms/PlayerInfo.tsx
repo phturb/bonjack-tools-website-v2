@@ -6,6 +6,7 @@ import {
   Chip,
   SelectChangeEvent,
   Avatar,
+  ListItemText,
   Stack,
 } from "@mui/material";
 import Grid from "@mui/material/GridLegacy";
@@ -54,12 +55,40 @@ const PlayerInfo = (props: PlayerInfoProperties) => {
             value={playerId}
             label={label}
             onChange={(evt) => onChange(evt, index)}
+            // Plain name in the closed select, even while a just-moved player
+            // still carries the "in <other lobby>" marker.
+            renderValue={(id) => {
+              const player = availablePlayers[id];
+              return player ? (player.name ?? "—") : "";
+            }}
+            MenuProps={{ slotProps: { paper: { sx: { maxWidth: 360 } } } }}
           >
-            {Object.entries(availablePlayers).map(([id, player]) => (
-              <MenuItem key={id || "none"} value={id}>
-                {player.name ?? "—"}
-              </MenuItem>
-            ))}
+            {Object.entries(availablePlayers).map(([id, player]) => {
+              const elsewhere = player.seatedIn;
+              if (!elsewhere) {
+                return (
+                  <MenuItem key={id || "none"} value={id}>
+                    {player.name ?? "—"}
+                  </MenuItem>
+                );
+              }
+              // Seated in another lobby: a game there locks them, otherwise picking moves them.
+              return (
+                <MenuItem
+                  key={id}
+                  value={id}
+                  disabled={elsewhere.gameInProgress}
+                  sx={{ whiteSpace: "normal" }}
+                >
+                  <ListItemText
+                    primary={`${player.name ?? "—"} — in ${elsewhere.name}`}
+                    secondary={
+                      elsewhere.gameInProgress ? "Playing there" : "Picking them moves them here"
+                    }
+                  />
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
       </Grid>

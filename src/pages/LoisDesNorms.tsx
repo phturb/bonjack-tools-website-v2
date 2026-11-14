@@ -3,28 +3,37 @@ import {
   Alert,
   CircularProgress,
   Container,
+  Link,
   SelectChangeEvent,
   Typography,
 } from "@mui/material";
 import Grid from "@mui/material/GridLegacy";
+import { Link as RouterLink, useParams } from "react-router-dom";
 import {
+  DEFAULT_LOBBY_ID,
   emptyDiscordPlayer,
   emptyPlayer,
+  LOBBY_LIST_PATH,
+  lobbyWebsocketUrl,
   LoisDesNormsState,
   MessageActions,
   Player,
+  SEAT_COUNT,
 } from "../helpers/loisDesNorms";
 import AdditionalInformationBlock from "../components/LoisDesNorms/AdditionalInformationBlock";
 import Lobby from "../components/LoisDesNorms/Lobby";
-import { LDN_WEBSOCKET_ENDPOINT } from "../config/config";
 
 type Message = { action: MessageActions; content: string };
 
 const INITIAL_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
+/** Close code the server uses right after lobbyNotFound. */
+const LOBBY_NOT_FOUND_CLOSE_CODE = 4404;
 
-const initialState: LoisDesNormsState = {
-  players: Array.from({ length: 5 }, emptyPlayer),
+const initialState = (lobbyId: string): LoisDesNormsState => ({
+  lobbyId,
+  lobbyName: "",
+  players: Array.from({ length: SEAT_COUNT }, emptyPlayer),
   rollCount: 0,
   gameInProgress: false,
   gameId: -1,
@@ -36,7 +45,7 @@ const initialState: LoisDesNormsState = {
   discordGuildName: "",
   discordGuildChannel: "",
   leagueVersion: "",
-};
+});
 
 const reducer = (state: LoisDesNormsState, message: Message): LoisDesNormsState => {
   switch (message.action) {
@@ -45,9 +54,14 @@ const reducer = (state: LoisDesNormsState, message: Message): LoisDesNormsState 
       return { ...state, players };
     }
     case "updateState": {
+      // Replaces the whole state, so it also reverts an optimistic updatePlayers
+      // the server refused (it echoes the true state back to the sender).
       const newState = JSON.parse(message.content) as LoisDesNormsState;
       return {
         ...newState,
+        // Additive fields: an older server leaves them out.
+        lobbyId: newState.lobbyId ?? state.lobbyId,
+        lobbyName: newState.lobbyName ?? "",
         nextRollAt: Date.now() + (newState.nextRollTimer ?? 0),
         availablePlayers: { ...newState.availablePlayers, "": emptyDiscordPlayer() },
       };
@@ -57,27 +71,53 @@ const reducer = (state: LoisDesNormsState, message: Message): LoisDesNormsState 
   }
 };
 
+/** Why the server ended the connection for good: no reconnect after either. */
+type LobbyGoneReason = "notFound" | "closed";
+
 type ConnectionStatus =
   | { kind: "connecting"; attempt: number }
   | { kind: "open" }
-  | { kind: "closed"; attempt: number; retryInMs: number };
+  | { kind: "closed"; attempt: number; retryInMs: number }
+  | { kind: "gone"; reason: LobbyGoneReason };
 
-const LoisDesNorms = () => {
-  const [state, dispatch] = useReducer(reducer, initialState);
+const backLink = (
+  <Link component={RouterLink} to={LOBBY_LIST_PATH} underline="hover" sx={{ display: "inline-block", mt: 1 }}>
+    ← All lobbies
+  </Link>
+);
+
+const title = (
+  <Typography variant="h4" component="h4" align="center">
+    Lois Des Norms
+  </Typography>
+);
+
+const LoisDesNormsLobby = ({ lobbyId }: { lobbyId: string }) => {
+  const [state, dispatch] = useReducer(reducer, lobbyId, initialState);
   const [connection, setConnection] = useState<ConnectionStatus>({ kind: "connecting", attempt: 1 });
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    // Unmounted (the page is keyed by lobby id, so this also covers a lobby switch).
     let disposed = false;
+    // The server said the lobby does not exist or was closed.
+    let gone = false;
     let retryDelay = INITIAL_RETRY_MS;
     let attempt = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
+    const stop = (ws: WebSocket, reason: LobbyGoneReason) => {
+      gone = true;
+      clearTimeout(retryTimer);
+      setConnection({ kind: "gone", reason });
+      ws.close();
+    };
+
     const connect = () => {
-      if (disposed) return;
+      if (disposed || gone) return;
       attempt += 1;
       setConnection({ kind: "connecting", attempt });
-      const ws = new WebSocket(LDN_WEBSOCKET_ENDPOINT);
+      const ws = new WebSocket(lobbyWebsocketUrl(lobbyId));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -85,9 +125,12 @@ const LoisDesNorms = () => {
         setConnection({ kind: "open" });
       };
       ws.onmessage = (event) => {
+        if (disposed || gone) return;
         try {
           const msg = JSON.parse(event.data) as Message;
-          if (msg.action) dispatch(msg);
+          if (msg.action === "lobbyNotFound") stop(ws, "notFound");
+          else if (msg.action === "lobbyClosed") stop(ws, "closed");
+          else if (msg.action) dispatch(msg);
         } catch (err) {
           console.error("Invalid websocket message", err);
         }
@@ -98,7 +141,13 @@ const LoisDesNorms = () => {
       };
       ws.onclose = (evt) => {
         if (wsRef.current === ws) wsRef.current = null;
-        if (disposed) return;
+        if (disposed || gone) return;
+        if (evt.code === LOBBY_NOT_FOUND_CLOSE_CODE) {
+          // The lobbyNotFound message got lost; the close code says the same thing.
+          gone = true;
+          setConnection({ kind: "gone", reason: "notFound" });
+          return;
+        }
         console.warn(
           `Socket closed (${evt.reason || evt.code}). Reconnecting in ${retryDelay / 1000}s`
         );
@@ -115,15 +164,17 @@ const LoisDesNorms = () => {
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, []);
+  }, [lobbyId]);
 
-  const send = useCallback((action: string, content?: string) => {
+  /** False when the socket is not open and the action was dropped. */
+  const send = useCallback((action: string, content?: string): boolean => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       console.warn(`Socket not open, dropping action "${action}"`);
-      return;
+      return false;
     }
     ws.send(JSON.stringify({ action, content }));
+    return true;
   }, []);
 
   const reset = () => send("reset");
@@ -147,15 +198,29 @@ const LoisDesNorms = () => {
       name: state.availablePlayers[newId]?.name,
     };
 
-    dispatch({ action: "updatePlayers", content: JSON.stringify(players) });
-    send("updatePlayers", JSON.stringify(players.map((p) => p.player)));
+    // Optimistic: applied only once sent. If the server refuses the seat (the
+    // player is in a game in another lobby), its updateState reverts it.
+    if (send("updatePlayers", JSON.stringify(players.map((p) => p.player)))) {
+      dispatch({ action: "updatePlayers", content: JSON.stringify(players) });
+    }
   };
 
-  const title = (
-    <Typography variant="h4" component="h4" align="center">
-      Lois Des Norms
-    </Typography>
-  );
+  if (connection.kind === "gone") {
+    return (
+      <Container>
+        {backLink}
+        {title}
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          {connection.reason === "notFound"
+            ? "This lobby does not exist. It may have been closed. "
+            : "This lobby was closed. "}
+          <Link component={RouterLink} to={LOBBY_LIST_PATH}>
+            See all lobbies
+          </Link>
+        </Alert>
+      </Container>
+    );
+  }
 
   const connectionBanner =
     connection.kind === "open" ? null : (
@@ -171,6 +236,7 @@ const LoisDesNorms = () => {
   if (state.gameId < 0) {
     return (
       <Container>
+        {backLink}
         {title}
         {connectionBanner}
         <CircularProgress />
@@ -180,7 +246,11 @@ const LoisDesNorms = () => {
 
   return (
     <Container>
+      {backLink}
       {title}
+      <Typography variant="h5" component="h5" align="center" sx={{ overflowWrap: "anywhere" }}>
+        {state.lobbyName || lobbyId}
+      </Typography>
       {connectionBanner}
       <Typography variant="h5" component="h5" align="center">
         Connected Server : {state.discordGuildName || state.discordGuild}
@@ -217,6 +287,16 @@ const LoisDesNorms = () => {
       </Grid>
     </Container>
   );
+};
+
+/**
+ * One lobby at /lois-des-norms/:lobbyId. Keyed by the id so switching lobbies
+ * remounts it: fresh reducer state, and the old socket and retry timer are
+ * disposed by the effect cleanup.
+ */
+const LoisDesNorms = () => {
+  const { lobbyId = DEFAULT_LOBBY_ID } = useParams<{ lobbyId: string }>();
+  return <LoisDesNormsLobby key={lobbyId} lobbyId={lobbyId} />;
 };
 
 export default LoisDesNorms;
